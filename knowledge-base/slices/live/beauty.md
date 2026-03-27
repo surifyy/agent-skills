@@ -23,11 +23,11 @@ docs:
 | 方法 / 属性 | 说明 |
 |-------------|------|
 | `BaseBeautyStore.shared` | 全局单例，整个 App 生命周期内唯一实例 |
-| `setSmoothLevel(smoothLevel:)` | 设置磨皮强度；参数范围 0–9（Float），0 为关闭，9 为最强 |
-| `setWhitenessLevel(whitenessLevel:)` | 设置美白强度；参数范围 0–9（Float） |
-| `setRuddyLevel(ruddyLevel:)` | 设置红润强度；参数范围 0–9（Float） |
+| `setSmoothLevel(smoothLevel:)` | 设置磨皮强度；参数类型 `Float`，范围 0–9，0 为关闭，9 为最强 |
+| `setWhitenessLevel(whitenessLevel:)` | 设置美白强度；参数类型 `Float`，范围 0–9 |
+| `setRuddyLevel(ruddyLevel:)` | 设置红润强度；参数类型 `Float`，范围 0–9 |
 | `reset()` | 将所有美颜参数恢复为默认值（通常为 0） |
-| `BaseBeautyState` | 美颜状态容器；包含 `smoothLevel`、`whitenessLevel`、`ruddyLevel` 三个属性 |
+| `BaseBeautyState` | 美颜状态容器；包含 `smoothLevel: Float`、`whitenessLevel: Float`、`ruddyLevel: Float` 三个属性 |
 | `state` | 可订阅的状态属性，变化时通知 UI 更新滑块位置 |
 
 ### UI 参数映射
@@ -35,15 +35,17 @@ docs:
 UI 控件（滑块）通常使用 `0.0–1.0` 的浮点范围，调用 SDK 前需乘以 9 转换：
 
 ```
-SDK 参数 = UI 滑块值 × 9
-UI 滑块值 = SDK 参数 ÷ 9
+SDK Float 参数 = UI 滑块值 × 9.0
+UI 滑块值 = SDK Float 参数 ÷ 9.0
 ```
 
-| UI 值 | SDK 值 | 效果 |
+> ⚠️ SDK 参数类型为 `Float`，不是 `Int`。传入 `4.5`（Float）与传入 `4`（Int 截断）效果不同。
+
+| UI 值 | SDK Float 值 | 效果 |
 |-------|--------|------|
-| 0.0 | 0 | 关闭效果 |
+| 0.0 | 0.0 | 关闭效果 |
 | 0.5 | 4.5 | 中等强度 |
-| 1.0 | 9 | 最强效果 |
+| 1.0 | 9.0 | 最强效果 |
 
 ## 最佳实践
 
@@ -51,14 +53,14 @@ UI 滑块值 = SDK 参数 ÷ 9
 
 1. **摄像头打开后再设置美颜** — `BaseBeautyStore` 作用于摄像头采集的视频流，必须在 `DeviceStore.openLocalCamera` 成功后调用美颜接口，否则设置不会生效。
 2. **订阅 `state` 更新 UI** — 使用 Combine 订阅 `BaseBeautyStore.shared.$state`，在状态变化时同步更新滑块位置，保证 UI 与实际效果一致。特别是调用 `reset()` 后需刷新所有滑块到初始值。
-3. **参数乘以 9 后再调用 SDK** — UI 滑块值（0.0–1.0）必须映射到 SDK 参数范围（0–9），不要直接传 0.0–1.0 的值（实际效果几乎为 0）。
+3. **参数乘以 9.0 后传入 Float** — UI 滑块值（0.0–1.0）必须映射到 SDK Float 参数范围（0.0–9.0），不要直接传 0.0–1.0 的值（实际效果几乎为 0）。参数类型是 `Float`，不要转换为 `Int`。
 4. **连麦观众复用同一单例** — 连麦场景中观众打开摄像头后，直接使用 `BaseBeautyStore.shared` 即可，无需额外初始化。
 
 ### ❌ NEVER
 
-1. **参数超过 9** — 传入大于 9 的值行为未定义，可能导致效果异常或崩溃。UI 层应做数值截断保护。
+1. **参数超过 9.0（Float）** — 传入大于 9.0 的值行为未定义，可能导致效果异常或崩溃。UI 层应做数值截断保护。
 2. **在摄像头关闭时调用美颜接口** — 无法作用于视频流，调用也不会报错，但下次摄像头打开时不会自动恢复上次设置，需重新赋值。
-3. **不做参数映射直接传 UI 值** — 直接将 0.0–1.0 的 Slider.value 传给 SDK，实际强度极低，用户感知不到美颜效果。
+3. **不做参数映射直接传 UI 值** — 直接将 0.0–1.0 的 `Slider.value` 传给 SDK，实际强度极低（9 分之一），用户感知不到美颜效果。且参数类型是 `Float`，不要转换为 `Int` 传入。
 
 ## 排障指南
 

@@ -21,10 +21,12 @@ docs:
 | 方法 / 属性 | 说明 |
 |-------------|------|
 | `CoGuestStore` | 管理连麦信令完整生命周期的核心类，通过 `create(liveID:)` 初始化 |
-| `applyForSeat(timeout:extraInfo:completion:)` | 观众发起连麦申请；`timeout` 控制等待审批的超时时长（秒） |
+| `applyForSeat(seatIndex:timeout:extraInfo:completion:)` | 观众发起连麦申请；`seatIndex` 默认 `-1`（系统自动分配麦位），`timeout` 控制等待审批的超时时长（秒） |
 | `cancelApplication(completion:)` | 观众在主播响应前撤回申请 |
 | `acceptApplication(userID:completion:)` | 主播同意指定观众的连麦申请 |
 | `rejectApplication(userID:completion:)` | 主播拒绝指定观众的连麦申请 |
+| `acceptInvitation(inviterID:completion:)` | 观众接受主播邀请；参数为 `inviterID`（邀请方主播的 userID），不是 `userID` |
+| `rejectInvitation(inviterID:completion:)` | 观众拒绝主播邀请；参数同上为 `inviterID` |
 | `disConnect(completion:)` | 连麦中的参与方主动断开连麦 |
 | `hostEventPublisher` | 主播端事件流；含 `onGuestApplicationReceived`（收到申请）等事件 |
 | `guestEventPublisher` | 观众端事件流；含 `onGuestApplicationResponded`（申请被响应）等事件 |
@@ -43,8 +45,8 @@ docs:
 
 ### ✅ ALWAYS
 
-1. **申请超时设置合理值（推荐 30 秒）** — `applyForSeat(timeout:)` 的超时决定了观众等待审批的最长时间。超时过短（<10 秒）会导致主播来不及响应；过长（>60 秒）会让观众长时间等待。推荐默认值 30 秒，并在 UI 上展示倒计时。
-2. **申请通过后立即打开设备** — 收到 `onGuestApplicationResponded(.accepted)` 回调后，立刻调用 `openLocalCamera` 和 `openLocalMicrophone`，减少连麦延迟。设备开启成功后画面才能被其他人看到。
+1. **申请超时设置合理值（推荐 30 秒）** — `applyForSeat(seatIndex:timeout:)` 的超时决定了观众等待审批的最长时间。超时过短（<10 秒）会导致主播来不及响应；过长（>60 秒）会让观众长时间等待。推荐默认值 30 秒，并在 UI 上展示倒计时。
+2. **申请通过后立即打开设备** — 收到 `onGuestApplicationResponded(isAccept: true, ...)` 回调后，立刻调用 `openLocalCamera` 和 `openLocalMicrophone`，减少连麦延迟。设备开启成功后画面才能被其他人看到。
 3. **断开连麦后立即关闭设备** — 调用 `disConnect` 或收到断开回调后，立即调用 `closeLocalCamera()` 与 `closeLocalMicrophone()`，避免摄像头指示灯常亮、耗电及隐私问题。
 4. **主播端监听 `hostEventPublisher`** — 主播必须订阅 `hostEventPublisher` 才能收到观众的申请通知。若主播界面未订阅，观众申请会超时无响应。
 

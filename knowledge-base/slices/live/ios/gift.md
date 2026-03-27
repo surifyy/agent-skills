@@ -24,26 +24,25 @@ pod 'AtomicXCore', '~> 4.0'
 let giftStore = GiftStore.create(liveID: liveID)
 
 // （可选）设置语言，须在 refreshUsableGifts 前调用
+// ⚠️ 首个参数无标签（unnamed），直接传值
 giftStore.setLanguage("zh-CN")
 
 // 拉取礼物列表
-giftStore.refreshUsableGifts(completion: ((Result<Void, Error>) -> Void)?)
+giftStore.refreshUsableGifts(completion: CompletionClosure?)
+// CompletionClosure = (Result<Void, ErrorInfo>) -> Void
 
 // 发送礼物
+// ⚠️ count 类型为 UInt，不是 Int
 giftStore.sendGift(
     giftID: String,
     count: UInt,
-    completion: ((Result<Void, Error>) -> Void)?
+    completion: CompletionClosure?
 )
 
 // 订阅礼物事件
-giftStore.giftEventPublisher
-    .sink { event in
-        switch event {
-        case .onReceiveGift(let giftInfo):
-            // 处理礼物动画
-        }
-    }
+giftStore.giftEventPublisher  // PassthroughSubject<GiftEvent, Never>
+// GiftEvent 枚举：
+// case .onReceiveGift(liveID: String, gift: Gift, count: UInt, sender: LiveUserInfo)
 ```
 
 | 参数 | 类型 | 说明 |
@@ -76,7 +75,7 @@ final class GiftManager {
         // 步骤1: 创建 GiftStore 实例
         self.giftStore = GiftStore.create(liveID: liveID)
 
-        // 步骤2: 多语言场景先设置语言
+        // 步骤2: 多语言场景先设置语言（首个参数无标签）
         giftStore.setLanguage(language)
 
         // 步骤3: 订阅礼物事件（进房后立即订阅，避免遗漏）
@@ -89,21 +88,21 @@ final class GiftManager {
     // MARK: - 礼物列表
 
     /// 拉取可用礼物列表（面板打开前调用）
-    func loadGifts(completion: ((Result<Void, Error>) -> Void)? = nil) {
+    func loadGifts(completion: ((Result<Void, ErrorInfo>) -> Void)? = nil) {
         giftStore.refreshUsableGifts { result in
             switch result {
             case .success:
                 print("[Gift] 礼物列表拉取成功")
                 completion?(.success(()))
             case .failure(let error):
-                print("[Gift] 礼物列表拉取失败: \(error)")
+                print("[Gift] 礼物列表拉取失败 code=\(error.code) msg=\(error.message)")
                 completion?(.failure(error))
             }
         }
     }
 
     private func subscribeGiftState() {
-        giftStore.$state
+        giftStore.state
             .map(\.usableGifts)
             .receive(on: DispatchQueue.main)
             .assign(to: &$giftCategories)
@@ -117,23 +116,18 @@ final class GiftManager {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] event in
                 switch event {
-                case .onReceiveGift(let giftInfo):
-                    self?.handleReceiveGift(giftInfo)
+                case .onReceiveGift(let liveID, let gift, let count, let sender):
+                    self?.handleReceiveGift(liveID: liveID, gift: gift, count: count, sender: sender)
                 }
             }
             .store(in: &cancellables)
     }
 
-    private func handleReceiveGift(_ giftInfo: GiftReceiveInfo) {
-        print("[Gift] 收到礼物: \(giftInfo.gift.name) ×\(giftInfo.count) from \(giftInfo.senderID)")
+    private func handleReceiveGift(liveID: String, gift: Gift, count: UInt, sender: LiveUserInfo) {
+        print("[Gift] 收到礼物: \(gift.name) ×\(count) from \(sender.userName)")
 
         // 播放礼物动画
-        GiftAnimationPlayer.shared.play(
-            resourceURL: giftInfo.gift.resourceURL,
-            senderName: giftInfo.senderName,
-            giftName: giftInfo.gift.name,
-            count: giftInfo.count
-        )
+        // GiftAnimationPlayer.shared.play(resourceURL: gift.resourceURL, ...)
 
         // 在弹幕区插入礼物通知（通过 BarrageStore.appendLocalTip）
         // 见 live/barrage slice
@@ -142,9 +136,10 @@ final class GiftManager {
     // MARK: - 发送礼物
 
     /// 发送礼物（从礼物面板调用）
+    /// - Parameter count: UInt 类型，最小值为 1
     func sendGift(giftID: String,
                   count: UInt = 1,
-                  completion: ((Result<Void, Error>) -> Void)? = nil) {
+                  completion: ((Result<Void, ErrorInfo>) -> Void)? = nil) {
         // 步骤6: 发送礼物
         giftStore.sendGift(giftID: giftID, count: count) { result in
             switch result {
@@ -155,7 +150,7 @@ final class GiftManager {
 
             case .failure(let error):
                 // ❌ 仅在失败时处理
-                print("[Gift] 发送失败: \(error)")
+                print("[Gift] 发送失败 code=\(error.code) msg=\(error.message)")
                 completion?(.failure(error))
             }
         }
@@ -169,7 +164,7 @@ final class GiftManager {
 }
 ```
 
-### 礼物面板 ViewController
+### 礼物面板示例
 
 ```swift
 final class GiftPanelViewController: UIViewController {
@@ -177,7 +172,6 @@ final class GiftPanelViewController: UIViewController {
     private var giftManager: GiftManager!
     private var cancellables = Set<AnyCancellable>()
 
-    // 面板 CollectionView（展示礼物分类 + 礼物列表）
     @IBOutlet weak var collectionView: UICollectionView!
     @IBOutlet weak var loadingIndicator: UIActivityIndicatorView!
 
@@ -194,17 +188,17 @@ final class GiftPanelViewController: UIViewController {
             }
             .store(in: &cancellables)
 
-        // 步骤: 面板出现时拉取礼物列表
+        // 面板出现时拉取礼物列表
         loadingIndicator.startAnimating()
         giftManager.loadGifts { [weak self] result in
             if case .failure(let error) = result {
-                self?.showError(error)
+                self?.showErrorToast(message: error.message)
                 self?.loadingIndicator.stopAnimating()
             }
         }
     }
 
-    // 用户点击礼物
+    // 用户点击礼物（count 为 UInt）
     func didSelectGift(_ gift: Gift, count: UInt) {
         giftManager.sendGift(giftID: gift.giftID, count: count) { [weak self] result in
             DispatchQueue.main.async {
@@ -218,16 +212,15 @@ final class GiftPanelViewController: UIViewController {
         }
     }
 
-    private func handleSendError(_ error: Error) {
-        let code = (error as? GiftError)?.code ?? -1
-        switch code {
+    private func handleSendError(_ error: ErrorInfo) {
+        switch error.code {
         case -4001:
             showRechargeAlert()   // 余额不足，引导充值
         case -4002:
             // 礼物不存在，刷新列表
             giftManager.loadGifts()
         default:
-            showErrorToast(message: error.localizedDescription)
+            showErrorToast(message: error.message)
         }
     }
 
@@ -269,7 +262,7 @@ func makeGiftManager(liveID: String) -> GiftManager {
     ▼
 GiftStore.create(liveID:)              // 创建实例
     │
-    ├─ setLanguage("zh-CN")            // （可选）多语言设置
+    ├─ setLanguage("zh-CN")            // （可选）多语言设置，首个参数无标签
     │
     ▼
 订阅 giftEventPublisher                // ⚠️ 进房后立即订阅，避免遗漏礼物
@@ -279,22 +272,23 @@ GiftStore.create(liveID:)              // 创建实例
     │       ▼
     │   refreshUsableGifts()           // 拉取礼物分类+列表
     │       │
-    │       ├─ .failure → 展示错误，提供重试
+    │       ├─ .failure(ErrorInfo) → 展示 error.message，提供重试
     │       └─ .success → GiftState.usableGifts 更新 → 渲染面板
     │
-    ├─ 用户点击发送礼物
+    ├─ 用户点击发送礼物（count: UInt）
     │       │
     │       ▼
     │   sendGift(giftID:count:)
-    │       ├─ .failure(-4001) → 引导充值
-    │       ├─ .failure(-4002) → 刷新礼物列表
+    │       ├─ .failure(code: -4001) → 引导充值
+    │       ├─ .failure(code: -4002) → 刷新礼物列表
     │       └─ .success → （无需额外操作）
     │
     ├─ 收到 giftEventPublisher 事件
     │       │
     │       ▼
-    │   .onReceiveGift(giftInfo)
-    │       ├─ 播放礼物动画（resourceURL）
+    │   .onReceiveGift(liveID:gift:count:sender:)
+    │       ├─ count 类型为 UInt
+    │       ├─ 播放礼物动画（gift.resourceURL）
     │       └─ 弹幕区插入礼物提示
     │
     └─ 退出直播间
@@ -305,14 +299,17 @@ GiftStore.create(liveID:)              // 创建实例
 
 ## 平台特有注意事项
 
-### 1. 礼物动画资源预加载
+### 1. count 类型为 UInt
+`sendGift` 的 `count` 参数及 `onReceiveGift` 事件的 `count` 都是 `UInt`，不是 `Int`。UI 层的计数变量应使用 `UInt` 或在传入时做显式转换。
+
+### 2. setLanguage 参数无标签
+`giftStore.setLanguage("zh-CN")` 中首个参数没有外部标签（unnamed），直接传字符串值。不要写 `giftStore.setLanguage(language: "zh-CN")`。
+
+### 3. 礼物动画资源预加载
 `Gift.resourceURL` 指向动画文件（如 SVGA、MP4）。建议在 `refreshUsableGifts` 成功后异步预下载高频礼物动画文件到本地缓存，避免发送时实时下载导致动画延迟。
 
-### 2. 连击礼物（连续发送相同礼物）
+### 4. 连击礼物（连续发送相同礼物）
 iOS 上实现连击需在 UI 层维护连击计数和防抖 Timer（建议 800ms 间隔）。收到 `onReceiveGift` 后判断是否与上一条礼物来自同一发送者且礼物相同，若是则累计数量更新 UI，否则重新播放动画。
 
-### 3. 内存管理
+### 5. 内存管理
 礼物动画（SVGA/Lottie）占用内存较高。建议同时最多播放 3 个礼物动画，超出时将旧动画排队等待完成后再播放，使用动画队列管理器控制并发数。
-
-### 4. 礼物面板手势冲突
-礼物面板通常以半屏弹出。注意与直播间的手势识别冲突（如 scrollView 的滑动手势），可通过 `UIGestureRecognizerDelegate` 的 `shouldRecognizeSimultaneously` 处理。

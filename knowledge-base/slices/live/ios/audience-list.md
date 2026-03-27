@@ -23,20 +23,15 @@ pod 'AtomicXCore', '~> 4.0'
 let audienceStore = LiveAudienceStore.create(liveID: String)
 
 // 拉取当前观众列表快照
-audienceStore.fetchAudienceList(
-    completion: ((Result<Void, Error>) -> Void)?
-)
+audienceStore.fetchAudienceList(completion: CompletionClosure?)
+// CompletionClosure = (Result<Void, ErrorInfo>) -> Void
+// ErrorInfo: .code: Int, .message: String
 
 // 订阅观众实时事件（Combine）
-audienceStore.liveAudienceEventPublisher: AnyPublisher<LiveAudienceEvent, Never>
+audienceStore.liveAudienceEventPublisher  // PassthroughSubject<LiveAudienceEvent, Never>
 
-// 访问当前状态（包含 audienceList 和 audienceCount）
-audienceStore.liveAudienceState: LiveAudienceState
-
-// 管理操作（管理员/主播使用）
-audienceStore.kickUserOutOfRoom(userID: String, completion: ...)
-audienceStore.setAdministrator(userID: String, completion: ...)
-audienceStore.revokeAdministrator(userID: String, completion: ...)
+// 订阅状态变化（包含 audienceList 和 audienceCount）
+audienceStore.state  // StatePublisher<LiveAudienceState>
 ```
 
 **LiveUserInfo 字段**
@@ -52,7 +47,16 @@ audienceStore.revokeAdministrator(userID: String, completion: ...)
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `audienceList` | `[LiveUserInfo]` | 当前观众数组快照 |
-| `audienceCount` | `Int` | 观众总数（近似值，受频控影响） |
+| `audienceCount` | `UInt` | 观众总数（近似值，受频控影响） |
+| `messageBannedUserList` | `[LiveUserInfo]` | 已被禁言的用户列表 |
+
+**LiveAudienceEvent 枚举**
+
+| 事件 | 说明 |
+|------|------|
+| `.onAudienceJoined(audience: LiveUserInfo)` | 有观众进入直播间 |
+| `.onAudienceLeft(audience: LiveUserInfo)` | 有观众离开直播间 |
+| `.onAudienceMessageDisabled(audience: LiveUserInfo, isDisable: Bool)` | 某观众禁言状态变更 |
 
 ## 代码示例
 
@@ -68,14 +72,14 @@ final class AudienceListViewModel {
     // MARK: - Properties
 
     private(set) var audienceList: [LiveUserInfo] = []
-    private(set) var audienceCount: Int = 0
+    private(set) var audienceCount: UInt = 0
 
     private var audienceStore: LiveAudienceStore?
     private var cancellables = Set<AnyCancellable>()
 
     // UI 刷新回调（通知 ViewController）
     var onListUpdated: (() -> Void)?
-    var onCountUpdated: ((Int) -> Void)?
+    var onCountUpdated: ((UInt) -> Void)?
 
     // MARK: - 初始化（进房成功后调用）
 
@@ -107,10 +111,13 @@ final class AudienceListViewModel {
             .sink { [weak self] event in
                 guard let self = self else { return }
                 switch event {
-                case .onAudienceJoined(let user):
-                    self.handleAudienceJoined(user)
-                case .onAudienceLeft(let user):
-                    self.handleAudienceLeft(user)
+                case .onAudienceJoined(let audience):
+                    self.handleAudienceJoined(audience)
+                case .onAudienceLeft(let audience):
+                    self.handleAudienceLeft(audience)
+                case .onAudienceMessageDisabled(let audience, let isDisable):
+                    // 禁言状态变更，可在此刷新 UI 标记
+                    print("[AudienceList] 用户 \(audience.userID) 禁言状态变更: \(isDisable)")
                 }
             }
             .store(in: &cancellables)
@@ -125,12 +132,12 @@ final class AudienceListViewModel {
                 switch result {
                 case .success:
                     // 从 state 中取最新快照
-                    self.audienceList = self.audienceStore?.liveAudienceState.audienceList ?? []
-                    self.audienceCount = self.audienceStore?.liveAudienceState.audienceCount ?? 0
+                    self.audienceList = self.audienceStore?.state.audienceList ?? []
+                    self.audienceCount = self.audienceStore?.state.audienceCount ?? 0
                     self.onListUpdated?()
                     self.onCountUpdated?(self.audienceCount)
                 case .failure(let error):
-                    print("[AudienceList] fetchAudienceList failed: \(error)")
+                    print("[AudienceList] fetchAudienceList failed code=\(error.code) msg=\(error.message)")
                 }
             }
         }
@@ -138,18 +145,18 @@ final class AudienceListViewModel {
 
     // MARK: - 事件处理
 
-    private func handleAudienceJoined(_ user: LiveUserInfo) {
+    private func handleAudienceJoined(_ audience: LiveUserInfo) {
         // 避免重复插入
-        guard !audienceList.contains(where: { $0.userID == user.userID }) else { return }
-        audienceList.insert(user, at: 0)   // 新观众插入列表头部
-        audienceCount = audienceStore?.liveAudienceState.audienceCount ?? audienceCount + 1
+        guard !audienceList.contains(where: { $0.userID == audience.userID }) else { return }
+        audienceList.insert(audience, at: 0)   // 新观众插入列表头部
+        audienceCount = audienceStore?.state.audienceCount ?? audienceCount + 1
         onListUpdated?()
         onCountUpdated?(audienceCount)
     }
 
-    private func handleAudienceLeft(_ user: LiveUserInfo) {
-        audienceList.removeAll { $0.userID == user.userID }
-        audienceCount = audienceStore?.liveAudienceState.audienceCount ?? max(audienceCount - 1, 0)
+    private func handleAudienceLeft(_ audience: LiveUserInfo) {
+        audienceList.removeAll { $0.userID == audience.userID }
+        audienceCount = audienceStore?.state.audienceCount ?? (audienceCount > 0 ? audienceCount - 1 : 0)
         onListUpdated?()
         onCountUpdated?(audienceCount)
     }
@@ -300,18 +307,19 @@ liveCoreView.joinLive 成功
 LiveAudienceStore.create(liveID:)       ← 每个直播间独立实例
     │
     ▼
-audienceStore.liveAudienceEventPublisher 订阅
+audienceStore.liveAudienceEventPublisher 订阅（PassthroughSubject）
     │
     ▼
 audienceStore.fetchAudienceList          ← 获取初始快照
     │
-    ├─ .failure → 检查登录态 / 进房状态
-    └─ .success → 读取 liveAudienceState.audienceList → reloadData
+    ├─ .failure(ErrorInfo) → 检查登录态 / 进房状态（error.code / error.message）
+    └─ .success → 读取 state.audienceList → reloadData
             │
             ▼
         实时事件推送
-        ├─ .onAudienceJoined(user) → 插入列表头 → reloadData
-        └─ .onAudienceLeft(user)  → 移除列表项 → reloadData
+        ├─ .onAudienceJoined(audience:) → 插入列表头 → reloadData
+        ├─ .onAudienceLeft(audience:)   → 移除列表项 → reloadData
+        └─ .onAudienceMessageDisabled(audience:isDisable:) → 更新禁言标记
             │
             ▼
         退出直播间
@@ -328,11 +336,9 @@ audienceStore.fetchAudienceList          ← 获取初始快照
 
 `liveAudienceEventPublisher` 的事件可能在后台线程分发。始终使用 `.receive(on: DispatchQueue.main)` 切换到主线程再更新 `audienceList` 和 `collectionView`，否则会触发 `UIKit` 主线程访问警告或崩溃。
 
-### 3. audienceCount 显示策略
+### 3. audienceCount 类型为 UInt
 
-由于频控（40条/秒），在万人以上直播间中 `audienceCount` 可能与实际值相差数百。建议：
-- UI 上展示"约 X 人在看"，而非精确数字
-- 不要用 `audienceCount` 做活动奖励、门槛判断等业务逻辑
+`LiveAudienceState.audienceCount` 是 `UInt` 类型（非 `Int`）。UI 展示时建议显示"约 X 人在看"，而非精确数字。由于频控（40条/秒），在万人以上直播间中 `audienceCount` 可能与实际值相差数百，不要用它做业务逻辑判断（如活动奖励门槛）。
 
 ### 4. 离场延迟：90 秒心跳窗口
 

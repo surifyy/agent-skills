@@ -23,37 +23,40 @@ pod 'AtomicXCore', '~> 4.0'
 let barrageStore = BarrageStore.create(liveID: liveID)
 
 // 发送文本弹幕
+// ⚠️ extensionInfo 类型为 [String: String]?，不是 [String: Any]?
 barrageStore.sendTextMessage(
     text: String,
-    extensionInfo: [String: Any]?,
-    completion: ((Result<Void, Error>) -> Void)?
+    extensionInfo: [String: String]?,
+    completion: CompletionClosure?
 )
+// CompletionClosure = (Result<Void, ErrorInfo>) -> Void
 
 // 发送自定义消息
 barrageStore.sendCustomMessage(
     businessID: String,
     data: String,          // JSON 字符串
-    completion: ((Result<Void, Error>) -> Void)?
+    completion: CompletionClosure?
 )
 
-// 插入本地提示（不广播）
+// 插入本地提示（不广播，仅当前客户端可见）
 barrageStore.appendLocalTip(message: Barrage)
 
-// 单独禁言/解除禁言（需房主或管理员权限）
-barrageStore.disableSendMessage(
-    userID: String,
-    isDisable: Bool,
-    completion: ((Result<Void, Error>) -> Void)?
-)
+// 订阅消息列表状态变化
+// BarrageStore 上没有 eventPublisher，只通过 state 订阅
+barrageStore.state  // StatePublisher<BarrageState>
+// BarrageState.messageList: [Barrage]
 ```
+
+> ⚠️ **注意**：`BarrageStore` 上没有独立的 `eventPublisher`，消息通过 `state.messageList` 分发。
+> ⚠️ **注意**：`disableSendMessage` 属于 `LiveAudienceStore`，不属于 `BarrageStore`，见 [live/audience-manage](live/audience-manage.md)。
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
 | `liveID` | `String` | 直播间唯一标识，与进房 ID 保持一致 |
 | `text` | `String` | 消息文本内容 |
+| `extensionInfo` | `[String: String]?` | 扩展信息字典（值必须为 String，不支持嵌套） |
 | `businessID` | `String` | 自定义消息类型标识，如 `"gift_notify"` |
 | `data` | `String` | JSON 格式的自定义消息体 |
-| `isDisable` | `Bool` | `true` = 禁言，`false` = 解除禁言 |
 
 ## 代码示例
 
@@ -83,14 +86,14 @@ final class BarrageManager {
         // 步骤1: 创建与直播间绑定的 BarrageStore
         self.barrageStore = BarrageStore.create(liveID: liveID)
 
-        // 步骤2: 订阅消息列表变化
+        // 步骤2: 订阅消息列表变化（通过 state，不是 eventPublisher）
         subscribeMessageList()
     }
 
     // MARK: - 订阅
 
     private func subscribeMessageList() {
-        barrageStore.$state
+        barrageStore.state
             .map(\.messageList)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] messages in
@@ -129,18 +132,19 @@ final class BarrageManager {
     // MARK: - 发送文本弹幕
 
     func sendText(_ text: String,
-                  completion: ((Result<Void, Error>) -> Void)? = nil) {
+                  completion: ((Result<Void, ErrorInfo>) -> Void)? = nil) {
         // 步骤5: 发送文本消息
+        // extensionInfo 类型为 [String: String]?，值只能是字符串
         barrageStore.sendTextMessage(
             text: text,
             extensionInfo: nil
         ) { result in
             switch result {
             case .success:
+                // 成功时 messageList 会自动更新，无需手动插入
                 completion?(.success(()))
             case .failure(let error):
-                // 仅在失败时处理；成功时 messageList 会自动更新
-                print("[Barrage] 发送失败: \(error)")
+                print("[Barrage] 发送失败 code=\(error.code) msg=\(error.message)")
                 completion?(.failure(error))
             }
         }
@@ -166,7 +170,7 @@ final class BarrageManager {
             data: jsonString
         ) { result in
             if case .failure(let error) = result {
-                print("[Barrage] 自定义消息发送失败: \(error)")
+                print("[Barrage] 自定义消息发送失败 code=\(error.code) msg=\(error.message)")
             }
         }
     }
@@ -177,42 +181,12 @@ final class BarrageManager {
         // 步骤7: 插入仅本端可见的系统提示
         var tip = Barrage()
         tip.textContent = text
-        tip.messageType = .systemTip
         barrageStore.appendLocalTip(message: tip)
-    }
-
-    // MARK: - 禁言管理（步骤8，需房主或管理员权限）
-
-    func muteUser(_ userID: String,
-                  completion: ((Result<Void, Error>) -> Void)? = nil) {
-        barrageStore.disableSendMessage(
-            userID: userID,
-            isDisable: true
-        ) { result in
-            switch result {
-            case .success:
-                print("[Barrage] 已禁言用户: \(userID)")
-                completion?(.success(()))
-            case .failure(let error):
-                print("[Barrage] 禁言失败: \(error)")
-                completion?(.failure(error))
-            }
-        }
-    }
-
-    func unmuteUser(_ userID: String,
-                    completion: ((Result<Void, Error>) -> Void)? = nil) {
-        barrageStore.disableSendMessage(
-            userID: userID,
-            isDisable: false
-        ) { result in
-            completion?(result.mapError { $0 })
-        }
     }
 }
 ```
 
-### UI 绑定（SwiftUI / UIKit）
+### UI 绑定（UIKit）
 
 ```swift
 // UIKit: 订阅 displayMessages 刷新 TableView
@@ -265,7 +239,7 @@ func parseCustomBarrage(_ barrage: Barrage) {
 BarrageStore.create(liveID:)          // 创建实例
     │
     ▼
-订阅 barrageStore.$state.messageList   // 建立状态监听
+订阅 barrageStore.state.messageList   // 建立状态监听（无独立 eventPublisher）
     │
     ├─ 收到消息更新
     │       │
@@ -283,9 +257,9 @@ BarrageStore.create(liveID:)          // 创建实例
     │       ▼
     │   sendTextMessage / sendCustomMessage
     │       ├─ .success → messageList 自动更新，无需手动插入
-    │       └─ .failure → 展示错误提示
-    │               ├─ -2380 全员禁言
-    │               └─ -2381 已被禁言
+    │       └─ .failure(ErrorInfo) → 展示错误提示
+    │               ├─ code -2380 全员禁言
+    │               └─ code -2381 已被禁言
     │
     └─ 退出直播间
             │
@@ -298,11 +272,14 @@ BarrageStore.create(liveID:)          // 创建实例
 ### 1. Combine 订阅生命周期
 `cancellables` 需与 ViewController / ViewModel 的生命周期保持一致。在 `deinit` 或 `viewDidDisappear` 时调用 `cancellables.removeAll()`，防止在直播间退出后仍收到回调。
 
-### 2. 键盘遮挡弹幕列表
+### 2. extensionInfo 类型为 `[String: String]?`
+`sendTextMessage` 的 `extensionInfo` 参数类型是 `[String: String]?`，不是 `[String: Any]?`。若需要传递复杂结构，请先将值 JSON 序列化为字符串再放入字典。
+
+### 3. 键盘遮挡弹幕列表
 iOS 上键盘弹出会遮盖底部弹幕输入框。监听 `UIResponder.keyboardWillShowNotification` 动态调整 `tableView` 的 `contentInset.bottom`，确保最新弹幕可见。
 
-### 3. 模拟器限制
+### 4. 模拟器限制
 模拟器网络行为与真机存在差异，建议在真机上测试弹幕高并发场景（弹幕风暴）以验证节流效果。
 
-### 4. 自定义消息 data 大小限制
+### 5. 自定义消息 data 大小限制
 `sendCustomMessage` 的 `data` 字段建议不超过 **4KB**，超出可能导致消息发送失败或被截断。礼物动画资源等大内容应使用 URL 而非内嵌数据。

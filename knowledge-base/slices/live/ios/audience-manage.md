@@ -20,29 +20,46 @@ pod 'AtomicXCore', '~> 4.0'
 ## API 调用
 
 ```swift
+// 创建观众管理模块（通过 LiveAudienceStore 工厂方法）
+let liveAudienceStore = LiveAudienceStore.create(liveID: liveID)
+
 // 踢出观众（需房主或管理员权限）
 liveAudienceStore.kickUserOutOfRoom(
     userID: String,
-    completion: ((Result<Void, Error>) -> Void)?
+    completion: CompletionClosure?
 )
+// CompletionClosure = (Result<Void, ErrorInfo>) -> Void
 
 // 设置管理员（仅房主）
 liveAudienceStore.setAdministrator(
     userID: String,
-    completion: ((Result<Void, Error>) -> Void)?
+    completion: CompletionClosure?
 )
 
 // 撤销管理员（仅房主）
 liveAudienceStore.revokeAdministrator(
     userID: String,
-    completion: ((Result<Void, Error>) -> Void)?
+    completion: CompletionClosure?
 )
+
+// 禁言 / 解除禁言（需房主或管理员权限）
+liveAudienceStore.disableSendMessage(
+    userID: String,
+    isDisable: Bool,
+    completion: CompletionClosure?
+)
+
+// 订阅观众管理事件
+liveAudienceStore.liveAudienceEventPublisher  // PassthroughSubject<LiveAudienceEvent, Never>
+// 包含：
+// .onAudienceMessageDisabled(audience: LiveUserInfo, isDisable: Bool)
 ```
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
 | `userID` | `String` | 目标用户的唯一标识 |
-| `completion` | `Result<Void, Error>?` | 异步回调，主线程返回 |
+| `isDisable` | `Bool` | `true` = 禁言，`false` = 解除禁言 |
+| `completion` | `CompletionClosure?` | `(Result<Void, ErrorInfo>) -> Void`，`ErrorInfo` 含 `.code` 和 `.message` |
 
 ## 代码示例
 
@@ -64,28 +81,28 @@ final class AudienceManageManager {
 
     // MARK: - 初始化
 
-    init(audienceStore: LiveAudienceStore) {
-        self.audienceStore = audienceStore
-        subscribeKickEvent()
+    init(liveID: String) {
+        // 通过工厂方法创建，确保每个直播间独立实例
+        self.audienceStore = LiveAudienceStore.create(liveID: liveID)
+        subscribeAudienceEvents()
     }
 
-    // MARK: - 监听被踢事件（所有用户都需监听）
+    // MARK: - 监听观众管理事件
 
-    private func subscribeKickEvent() {
-        audienceStore.onKickedOutOfLive
+    private func subscribeAudienceEvents() {
+        audienceStore.liveAudienceEventPublisher
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] in
-                // 步骤: 收到被踢通知，立即退出直播间
-                self?.handleKickedOut()
+            .sink { [weak self] event in
+                guard let self else { return }
+                switch event {
+                case .onAudienceMessageDisabled(let audience, let isDisable):
+                    // 某用户禁言状态变更，刷新列表 UI
+                    print("[Manage] 用户 \(audience.userID) 禁言状态: \(isDisable)")
+                case .onAudienceJoined, .onAudienceLeft:
+                    break
+                }
             }
             .store(in: &cancellables)
-    }
-
-    private func handleKickedOut() {
-        // 1. 展示提示
-        showToast("您已被主播移出直播间")
-        // 2. 退出房间
-        exitLiveRoom()
     }
 
     // MARK: - 权限校验
@@ -113,12 +130,11 @@ final class AudienceManageManager {
 
     func kickUser(_ userID: String,
                   targetRole: UserRole,
-                  completion: ((Result<Void, Error>) -> Void)? = nil) {
+                  completion: ((Result<Void, ErrorInfo>) -> Void)? = nil) {
         // 步骤1: 调用前校验权限
         guard canKick(targetRole: targetRole) else {
-            let error = ManageError.insufficientPermission
-            print("[AudienceManage] 权限不足，无法踢出用户: \(userID)")
-            completion?(.failure(error))
+            print("[Manage] 权限不足，无法踢出用户: \(userID)")
+            completion?(.failure(ErrorInfo(code: -1, message: "权限不足，无法执行此操作")))
             return
         }
 
@@ -127,10 +143,10 @@ final class AudienceManageManager {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    print("[AudienceManage] 已踢出用户: \(userID)")
+                    print("[Manage] 已踢出用户: \(userID)")
                     completion?(.success(()))
                 case .failure(let error):
-                    print("[AudienceManage] 踢出失败: \(error)")
+                    print("[Manage] 踢出失败 code=\(error.code) msg=\(error.message)")
                     completion?(.failure(error))
                 }
             }
@@ -140,10 +156,10 @@ final class AudienceManageManager {
     // MARK: - 管理员设置（仅房主）
 
     func setAdministrator(_ userID: String,
-                          completion: ((Result<Void, Error>) -> Void)? = nil) {
+                          completion: ((Result<Void, ErrorInfo>) -> Void)? = nil) {
         // 步骤3: 校验房主权限
         guard canManageAdmin() else {
-            completion?(.failure(ManageError.insufficientPermission))
+            completion?(.failure(ErrorInfo(code: -1, message: "权限不足，无法执行此操作")))
             return
         }
 
@@ -151,10 +167,10 @@ final class AudienceManageManager {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    print("[AudienceManage] 已设置管理员: \(userID)")
+                    print("[Manage] 已设置管理员: \(userID)")
                     completion?(.success(()))
                 case .failure(let error):
-                    print("[AudienceManage] 设置管理员失败: \(error)")
+                    print("[Manage] 设置管理员失败 code=\(error.code) msg=\(error.message)")
                     completion?(.failure(error))
                 }
             }
@@ -162,9 +178,9 @@ final class AudienceManageManager {
     }
 
     func revokeAdministrator(_ userID: String,
-                             completion: ((Result<Void, Error>) -> Void)? = nil) {
+                             completion: ((Result<Void, ErrorInfo>) -> Void)? = nil) {
         guard canManageAdmin() else {
-            completion?(.failure(ManageError.insufficientPermission))
+            completion?(.failure(ErrorInfo(code: -1, message: "权限不足，无法执行此操作")))
             return
         }
 
@@ -172,21 +188,47 @@ final class AudienceManageManager {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    print("[AudienceManage] 已撤销管理员: \(userID)")
+                    print("[Manage] 已撤销管理员: \(userID)")
                     completion?(.success(()))
                 case .failure(let error):
-                    print("[AudienceManage] 撤销管理员失败: \(error)")
+                    print("[Manage] 撤销管理员失败 code=\(error.code) msg=\(error.message)")
                     completion?(.failure(error))
                 }
             }
         }
     }
 
+    // MARK: - 禁言管理
+
+    func muteUser(_ userID: String,
+                  completion: ((Result<Void, ErrorInfo>) -> Void)? = nil) {
+        audienceStore.disableSendMessage(userID: userID, isDisable: true) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    print("[Manage] 已禁言用户: \(userID)")
+                    completion?(.success(()))
+                case .failure(let error):
+                    print("[Manage] 禁言失败 code=\(error.code) msg=\(error.message)")
+                    completion?(.failure(error))
+                }
+            }
+        }
+    }
+
+    func unmuteUser(_ userID: String,
+                    completion: ((Result<Void, ErrorInfo>) -> Void)? = nil) {
+        audienceStore.disableSendMessage(userID: userID, isDisable: false) { result in
+            DispatchQueue.main.async {
+                completion?(result)
+            }
+        }
+    }
+
     // MARK: - 错误处理
 
-    func handleManageError(_ error: Error, for operation: String) {
-        let code = (error as? LiveError)?.code ?? -1
-        switch code {
+    func handleManageError(_ error: ErrorInfo, for operation: String) {
+        switch error.code {
         case -2300:
             showAlert(title: "权限不足", message: "该操作仅房主可执行")
         case -2301:
@@ -194,20 +236,7 @@ final class AudienceManageManager {
         case -2302:
             showToast("该用户已不在直播间")
         default:
-            showToast("\(operation)失败：\(error.localizedDescription)")
-        }
-    }
-}
-
-// MARK: - 错误类型
-
-enum ManageError: LocalizedError {
-    case insufficientPermission
-
-    var errorDescription: String? {
-        switch self {
-        case .insufficientPermission:
-            return "权限不足，无法执行此操作"
+            showToast("\(operation)失败：\(error.message)")
         }
     }
 }
@@ -225,22 +254,31 @@ enum UserRole {
 
 ```swift
 // 观众列表 Cell 上的操作菜单（权限判断）
-func showAudienceActionMenu(for audience: AudienceInfo,
+func showAudienceActionMenu(for audience: LiveUserInfo,
+                            audienceRole: UserRole,
                             currentRole: UserRole) {
     var actions: [UIAlertAction] = []
 
     // 仅房主或管理员可踢人（管理员只能踢普通观众）
     let canKick = (currentRole == .owner) ||
-                  (currentRole == .admin && audience.role == .audience)
+                  (currentRole == .admin && audienceRole == .audience)
     if canKick {
         actions.append(UIAlertAction(title: "踢出直播间", style: .destructive) { [weak self] _ in
             self?.confirmKick(userID: audience.userID)
         })
     }
 
-    // 仅房主可设置/撤销管理员
+    // 仅房主可禁言/设置管理员
     if currentRole == .owner {
-        if audience.role == .audience {
+        actions.append(UIAlertAction(title: "禁言", style: .default) { [weak self] _ in
+            self?.manageManager.muteUser(audience.userID) { result in
+                if case .failure(let error) = result {
+                    self?.manageManager.handleManageError(error, for: "禁言")
+                }
+            }
+        })
+
+        if audienceRole == .audience {
             actions.append(UIAlertAction(title: "设为管理员", style: .default) { [weak self] _ in
                 self?.manageManager.setAdministrator(audience.userID) { result in
                     if case .failure(let error) = result {
@@ -248,7 +286,7 @@ func showAudienceActionMenu(for audience: AudienceInfo,
                     }
                 }
             })
-        } else if audience.role == .admin {
+        } else if audienceRole == .admin {
             actions.append(UIAlertAction(title: "撤销管理员", style: .default) { [weak self] _ in
                 self?.manageManager.revokeAdministrator(audience.userID) { result in
                     if case .failure(let error) = result {
@@ -272,7 +310,6 @@ func showAudienceActionMenu(for audience: AudienceInfo,
 }
 
 private func confirmKick(userID: String) {
-    // 二次确认，防止误操作
     let alert = UIAlertController(
         title: "踢出直播间",
         message: "确定要将该用户移出直播间吗？",
@@ -296,37 +333,39 @@ private func confirmKick(userID: String) {
 进入直播间
     │
     ▼
-订阅 onKickedOutOfLive                 // ⚠️ 所有角色都须监听，确保被踢时正确退出
+LiveAudienceStore.create(liveID:)
+    │
+    ▼
+订阅 liveAudienceEventPublisher        // 监听禁言状态变更等事件
     │
     ├─ 房主操作流程
     │       │
     │       ├─ setAdministrator(userID:)
     │       │       ├─ .success → 更新观众列表角色标记
-    │       │       └─ .failure(-2300) → 非房主，隐藏入口
+    │       │       └─ .failure(code: -2300) → 非房主，隐藏入口
     │       │
-    │       └─ revokeAdministrator(userID:)
-    │               ├─ .success → 更新观众列表角色标记
-    │               └─ .failure(-2300) → 非房主，隐藏入口
-    │
-    ├─ 房主/管理员踢人流程
+    │       ├─ revokeAdministrator(userID:)
+    │       │       ├─ .success → 更新观众列表角色标记
+    │       │       └─ .failure(code: -2300) → 非房主，隐藏入口
     │       │
-    │       ├─ 权限校验（canKick）
-    │       ├─ 二次确认弹窗
-    │       └─ kickUserOutOfRoom(userID:)
-    │               ├─ .success → 刷新观众列表
-    │               ├─ .failure(-2301) → 权限不足
-    │               └─ .failure(-2302) → 用户已离开，刷新列表
+    │       └─ disableSendMessage(userID:isDisable:)
+    │               ├─ .success → onAudienceMessageDisabled 事件推送
+    │               └─ .failure(ErrorInfo) → 展示 error.message
     │
-    └─ 被踢用户收到 onKickedOutOfLive
+    └─ 房主/管理员踢人流程
             │
-            ▼
-        展示提示 → 退出直播间 → 返回上一页
+            ├─ 权限校验（canKick）
+            ├─ 二次确认弹窗
+            └─ kickUserOutOfRoom(userID:)
+                    ├─ .success → 刷新观众列表
+                    ├─ .failure(code: -2301) → 权限不足
+                    └─ .failure(code: -2302) → 用户已离开，刷新列表
 ```
 
 ## 平台特有注意事项
 
-### 1. `onKickedOutOfLive` 线程安全
-`onKickedOutOfLive` 回调可能在非主线程触发。使用 `.receive(on: DispatchQueue.main)` 确保 UI 操作在主线程执行，避免界面异常。
+### 1. ErrorInfo 替代 Error
+所有 completion 使用 `(Result<Void, ErrorInfo>) -> Void`，不是 `Result<Void, Error>`。错误信息通过 `error.code`（Int）和 `error.message`（String）访问，不要调用 `localizedDescription`。
 
 ### 2. 管理员权限 UI 实时刷新
 当房主撤销某用户的管理员权限时，该用户应立即看到操作按钮的变化（如隐藏踢人按钮）。通过订阅观众列表状态变化来驱动 UI 更新，不要依赖本地缓存的角色信息。

@@ -24,13 +24,13 @@ docs:
 |-------------|------|
 | `GiftStore.create(liveID:)` | 创建或获取与指定直播间绑定的单例实例 |
 | `refreshUsableGifts(completion:)` | 从服务端拉取礼物面板所需数据（分类列表 + 礼物详情）；建议在面板展示前调用 |
-| `sendGift(giftID:count:completion:)` | 发送指定数量的礼物；成功时触发全房间的 `onReceiveGift` 广播 |
-| `giftEventPublisher` | 礼物事件 Publisher；订阅后接收房间内所有礼物事件（含自己发出的） |
-| `onReceiveGift` | `GiftEvent` 枚举值；包含发送者信息、礼物详情、数量等 |
+| `sendGift(giftID:count:completion:)` | 发送指定数量的礼物；`count` 类型为 `UInt`；成功时触发全房间的 `onReceiveGift` 广播 |
+| `giftEventPublisher` | 礼物事件 Publisher（`PassthroughSubject<GiftEvent, Never>`）；订阅后接收房间内所有礼物事件（含自己发出的） |
+| `onReceiveGift` | `GiftEvent` 枚举值；`.onReceiveGift(liveID: String, gift: Gift, count: UInt, sender: LiveUserInfo)`；`count` 为 `UInt` |
 | `Gift` | 单个礼物数据模型；含 `giftID`、`name`、`desc`、`iconURL`、`resourceURL`（动画资源）、`level`、`coins`（价格） |
 | `GiftCategory` | 礼物分类模型；含 `categoryID`、`name`、`giftList: [Gift]` |
 | `GiftState` | 礼物模块状态容器；`usableGifts: [GiftCategory]` 为服务端返回的可用礼物列表 |
-| `setLanguage(_ language:)` | 设置礼物名称/描述的语言（如 `"zh-CN"`、`"en"`）；需在 `refreshUsableGifts` 前调用 |
+| `setLanguage(_ language:)` | 设置礼物名称/描述的语言（如 `"zh-CN"`、`"en"`）；首个参数无外部标签；需在 `refreshUsableGifts` 前调用 |
 
 ## 最佳实践
 

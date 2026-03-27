@@ -22,30 +22,37 @@ pod 'AtomicXCore', '~> 4.0'
 // 获取单例
 let beautyStore = BaseBeautyStore.shared
 
-// 设置磨皮（0-9）
+// 设置磨皮强度（0–9，类型为 Float）
 beautyStore.setSmoothLevel(smoothLevel: Float)
 
-// 设置美白（0-9）
+// 设置美白强度（0–9，类型为 Float）
 beautyStore.setWhitenessLevel(whitenessLevel: Float)
 
-// 设置红润（0-9）
+// 设置红润强度（0–9，类型为 Float）
 beautyStore.setRuddyLevel(ruddyLevel: Float)
 
 // 重置所有美颜参数
 beautyStore.reset()
 
 // 订阅状态变化
-beautyStore.$state
-    .sink { state in
-        // state.smoothLevel / state.whitenessLevel / state.ruddyLevel
-    }
+beautyStore.state  // StatePublisher<BaseBeautyState>
+// BaseBeautyState.smoothLevel: Float
+// BaseBeautyState.whitenessLevel: Float
+// BaseBeautyState.ruddyLevel: Float
 ```
+
+> ⚠️ **参数类型为 `Float`，不是 `Int`**。范围 0–9，0 表示关闭，9 为最强。
 
 | 参数 | 类型 | 范围 | 说明 |
 |------|------|------|------|
 | `smoothLevel` | `Float` | 0–9 | 磨皮强度，0 = 关闭 |
 | `whitenessLevel` | `Float` | 0–9 | 美白强度，0 = 关闭 |
 | `ruddyLevel` | `Float` | 0–9 | 红润强度，0 = 关闭 |
+
+**UI 值映射**：UI 滑块通常范围 `0.0–1.0`，调用 SDK 前需乘以 9：
+```
+SDK Float 参数 = UISlider.value（0.0–1.0）× 9.0
+```
 
 ## 代码示例
 
@@ -80,10 +87,11 @@ final class BeautyPanelViewModel {
     // MARK: - 状态订阅（SDK → UI）
 
     private func subscribeBeautyState() {
-        beautyStore.$state
+        // BaseBeautyState 的属性均为 Float
+        beautyStore.state
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in
-                // 将 SDK 参数（0-9）转换为 UI 滑块值（0.0-1.0）
+                // 将 SDK 参数（Float，0-9）转换为 UI 滑块值（0.0-1.0）
                 self?.smoothSlider = state.smoothLevel / 9.0
                 self?.whitenessSlider = state.whitenessLevel / 9.0
                 self?.ruddySlider = state.ruddyLevel / 9.0
@@ -121,20 +129,20 @@ final class BeautyPanelViewModel {
 
     // MARK: - 美颜参数设置（含 UI→SDK 值映射）
 
-    /// 设置磨皮（UI 滑块值 0.0-1.0）
+    /// 设置磨皮（UI 滑块值 0.0-1.0 → SDK Float 0-9）
     func setSmoothLevel(sliderValue: Float) {
-        // 步骤3: UI 值 ×9 转换为 SDK 参数
+        // 步骤3: UI 值 ×9 转换为 SDK Float 参数
         let sdkValue = clamp(sliderValue * 9.0)
         beautyStore.setSmoothLevel(smoothLevel: sdkValue)
     }
 
-    /// 设置美白（UI 滑块值 0.0-1.0）
+    /// 设置美白（UI 滑块值 0.0-1.0 → SDK Float 0-9）
     func setWhitenessLevel(sliderValue: Float) {
         let sdkValue = clamp(sliderValue * 9.0)
         beautyStore.setWhitenessLevel(whitenessLevel: sdkValue)
     }
 
-    /// 设置红润（UI 滑块值 0.0-1.0）
+    /// 设置红润（UI 滑块值 0.0-1.0 → SDK Float 0-9）
     func setRuddyLevel(sliderValue: Float) {
         let sdkValue = clamp(sliderValue * 9.0)
         beautyStore.setRuddyLevel(ruddyLevel: sdkValue)
@@ -148,7 +156,7 @@ final class BeautyPanelViewModel {
 
     // MARK: - 工具方法
 
-    /// 参数截断，防止超出范围
+    /// 参数截断，防止超出 0–9 范围
     private func clamp(_ value: Float) -> Float {
         return min(max(value, 0.0), 9.0)
     }
@@ -235,7 +243,7 @@ final class BeautyPanelViewController: UIViewController {
 // 连麦观众打开摄像头后，直接复用同一单例
 func onCoGuestCameraOpened() {
     // DeviceStore.openLocalCamera 成功后即可设置美颜
-    // BaseBeautyStore.shared 持有上次的参数，无需重新配置
+    // BaseBeautyStore.shared 持有上次的 Float 参数，无需重新配置
     let currentState = BaseBeautyStore.shared.state
     print("[Beauty] 当前磨皮: \(currentState.smoothLevel), 美白: \(currentState.whitenessLevel)")
 
@@ -253,29 +261,29 @@ func onCoGuestCameraOpened() {
 BaseBeautyStore.shared                 // 获取单例（无需初始化）
     │
     ▼
-订阅 $state                            // 建立状态监听，驱动 UI 同步
+订阅 state                             // 建立状态监听，驱动 UI 同步
     │
     ├─ 用户调整磨皮滑块
     │       │
     │       ▼
-    │   UI 值 ×9 → setSmoothLevel(sdkValue)
+    │   UISlider.value × 9.0 → setSmoothLevel(smoothLevel: Float)
     │       │
-    │       └─ $state 更新 → UI 滑块位置同步确认
+    │       └─ state 更新 → UI 滑块位置同步确认
     │
     ├─ 用户调整美白滑块
     │       │
-    │       └─ setWhitenessLevel(sliderValue × 9)
+    │       └─ setWhitenessLevel(whitenessLevel: Float)
     │
     ├─ 用户调整红润滑块
     │       │
-    │       └─ setRuddyLevel(sliderValue × 9)
+    │       └─ setRuddyLevel(ruddyLevel: Float)
     │
     ├─ 用户点击重置
     │       │
     │       ▼
     │   reset()
     │       │
-    │       └─ $state 更新（所有值归 0）→ UI 滑块自动归零
+    │       └─ state 更新（所有 Float 值归 0）→ UI 滑块自动归零
     │
     └─ 关闭摄像头 / 退出直播间
             │
@@ -285,10 +293,13 @@ BaseBeautyStore.shared                 // 获取单例（无需初始化）
 
 ## 平台特有注意事项
 
-### 1. 真机测试
+### 1. 参数类型为 Float
+`setSmoothLevel`、`setWhitenessLevel`、`setRuddyLevel` 的参数和 `BaseBeautyState` 的所有属性均为 `Float`，不是 `Int`。不要对参数做 `Int()` 截断，否则会丢失精度（如 4.5 会变成 4）。
+
+### 2. 真机测试
 iOS 模拟器不支持摄像头采集，美颜效果**必须在真机上验证**。模拟器上调用美颜接口不会报错，但无法看到实际效果。
 
-### 2. 滑块防抖
+### 3. 滑块防抖
 用户拖动滑块时会高频触发 `valueChanged`，建议对 SDK 调用做 100ms 防抖，避免过高的调用频率影响性能：
 
 ```swift
@@ -305,8 +316,8 @@ func setSmoothLevelDebounced(sliderValue: Float) {
 }
 ```
 
-### 3. App 进入后台
-iOS 后台时摄像头采集暂停，美颜效果自动停止作用。App 重新进入前台且摄像头恢复采集后，美颜参数会自动继续生效（单例保留了上次的参数设置），无需重新调用。
+### 4. App 进入后台
+iOS 后台时摄像头采集暂停，美颜效果自动停止作用。App 重新进入前台且摄像头恢复采集后，美颜参数会自动继续生效（单例保留了上次的 Float 参数设置），无需重新调用。
 
-### 4. 与滤镜功能的关系
+### 5. 与滤镜功能的关系
 `BaseBeautyStore` 仅提供基础美颜（磨皮/美白/红润）。如需高级美颜（瘦脸、大眼等）或滤镜功能，需要接入腾讯特效 SDK（XMagic），配置不同的授权。
