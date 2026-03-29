@@ -5,42 +5,42 @@
 
 ## Quick Start
 
-- [Run Demo App](https://trtc.io/document/60455) — Clone, configure, and run the official TUILiveKit demo
+- [Run Demo App](https://trtc.io/document/60455.md) — Clone, configure, and run the official TUILiveKit demo
   - Repo: https://github.com/Tencent-RTC/TUIKit_iOS.git
   - Path: `TUIKit_iOS/application`
   - Setup: `pod install --repo-update` → edit `GenerateTestUserSig.swift` with SDKAppID + SecretKey
   - Requires: iOS 13.0+ real device, Xcode 15+, CocoaPods 1.10+
-- [Build Live Streaming](https://trtc.io/document/74594)
-- [Build Live Room](https://trtc.io/document/78279)
+- [Build Live Streaming](https://trtc.io/document/74594.md)
+- [Build Live Room](https://trtc.io/document/78279.md)
 
 ## Host
 
-- [Pre-broadcast Preview](https://trtc.io/document/74594#anchor-preview)
-- [Room Configuration](https://trtc.io/document/74594#room-config)
-- [Start & End Broadcast](https://trtc.io/document/74594#lifecycle)
+- [Pre-broadcast Preview](https://trtc.io/document/74594.md#anchor-preview)
+- [Room Configuration](https://trtc.io/document/74594.md#room-config)
+- [Start & End Broadcast](https://trtc.io/document/74594.md#lifecycle)
 
 ## Audience
 
-- [Live Room List](https://trtc.io/document/74610)
-- [Watch & Leave](https://trtc.io/document/74594#audience-watch)
-- [Audience List](https://trtc.io/document/74596#audience-list)
+- [Live Room List](https://trtc.io/document/74610.md)
+- [Watch & Leave](https://trtc.io/document/74594.md#audience-watch)
+- [Audience List](https://trtc.io/document/74596.md#audience-list)
 
 ## Interaction
 
-- [Co-hosting (Mic Connect)](https://trtc.io/document/74598)
-- [Cross-room Connect & PK](https://trtc.io/document/74600)
-- [Audience Management](https://trtc.io/document/74596)
+- [Co-hosting (Mic Connect)](https://trtc.io/document/74598.md)
+- [Cross-room Connect & PK](https://trtc.io/document/74600.md)
+- [Audience Management](https://trtc.io/document/74596.md)
 
 ## Commerce
 
-- [Gifts](https://trtc.io/document/74604)
-- [Barrage Chat](https://trtc.io/document/74602)
+- [Gifts](https://trtc.io/document/74604.md)
+- [Barrage Chat](https://trtc.io/document/74602.md)
 
 ## Effects
 
-- [Beauty Filters](https://trtc.io/document/74606)
-- [Audio Effects](https://trtc.io/document/74608)
+- [Beauty Filters](https://trtc.io/document/74606.md)
+- [Audio Effects](https://trtc.io/document/74608.md)
 
 ## Troubleshooting
 
-- [Error Codes](https://trtc.io/document/60027)
+- [Error Codes](https://trtc.io/document/60027.md)
