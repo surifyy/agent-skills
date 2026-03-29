@@ -13,6 +13,10 @@ ai-integration/
 │   ├── search/SKILL.md                # 搜索 slice（原子能力）和 scenario（集成场景）
 │   ├── apply/SKILL.md                 # 应用/校验代码
 │   └── topic/SKILL.md                 # 场景引导
+├── llms.txt                           # LLM 文档发现入口（产品索引）
+├── llms/                              # LLM 渐进式文档（面向外部 LLM 的轻量索引）
+│   ├── {product}.txt                  # 产品概述 + 平台链接（如 live.txt, chat.txt）
+│   └── {product}-{platform}.txt       # 平台概述 + 官方文档链接（如 live-ios.txt）
 ├── knowledge-base/
 │   ├── index.yaml                     # 全量索引（v3.0 — 含 source/priority/domain 字段）
 │   ├── slice-spec.md                  # Slice 定义规范（拆分标准、编写规范、规划方法论）
