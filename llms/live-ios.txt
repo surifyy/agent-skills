@@ -1,0 +1,46 @@
+# TRTC Live — iOS
+
+> iOS integration guide for TRTC Live SDK.
+> Requires iOS 13.0+, Xcode 15+, CocoaPods.
+
+## Quick Start
+
+- [Run Demo App](https://trtc.io/document/60455) — Clone, configure, and run the official TUILiveKit demo
+  - Repo: https://github.com/Tencent-RTC/TUIKit_iOS.git
+  - Path: `TUIKit_iOS/application`
+  - Setup: `pod install --repo-update` → edit `GenerateTestUserSig.swift` with SDKAppID + SecretKey
+  - Requires: iOS 13.0+ real device, Xcode 15+, CocoaPods 1.10+
+- [Build Live Streaming](https://trtc.io/document/74594)
+- [Build Live Room](https://trtc.io/document/78279)
+
+## Host
+
+- [Pre-broadcast Preview](https://trtc.io/document/74594#anchor-preview)
+- [Room Configuration](https://trtc.io/document/74594#room-config)
+- [Start & End Broadcast](https://trtc.io/document/74594#lifecycle)
+
+## Audience
+
+- [Live Room List](https://trtc.io/document/74610)
+- [Watch & Leave](https://trtc.io/document/74594#audience-watch)
+- [Audience List](https://trtc.io/document/74596#audience-list)
+
+## Interaction
+
+- [Co-hosting (Mic Connect)](https://trtc.io/document/74598)
+- [Cross-room Connect & PK](https://trtc.io/document/74600)
+- [Audience Management](https://trtc.io/document/74596)
+
+## Commerce
+
+- [Gifts](https://trtc.io/document/74604)
+- [Barrage Chat](https://trtc.io/document/74602)
+
+## Effects
+
+- [Beauty Filters](https://trtc.io/document/74606)
+- [Audio Effects](https://trtc.io/document/74608)
+
+## Troubleshooting
+
+- [Error Codes](https://trtc.io/document/60027)
