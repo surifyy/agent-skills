@@ -80,7 +80,11 @@ If platform was not auto-detected in Step 1, ask now:
 
 ## Path A1: Demo Quickstart
 
-**Your role: Executor.** You run commands, configure files, handle errors. The developer watches a working demo come to life.
+**Your role: Executor.** You clone the official demo, configure it, and run it. The developer sees a working product in minutes.
+
+**CRITICAL: Do NOT write custom code in the user's project.** Path A1 is about running the official pre-built demo app, not building anything from scratch. Even if the user's project already has TRTC dependencies, clone the official demo repo into a separate directory.
+
+**Demo documentation:** https://trtc.io/document/60455.md — fetch this page for the latest platform-specific instructions before proceeding.
 
 ### A1.1 — Credentials
 
@@ -96,24 +100,25 @@ If platform was not auto-detected in Step 1, ask now:
 
 Wait for credentials before proceeding.
 
-### A1.2 — Clone & Install
+### A1.2 — Clone Official Demo
 
-Based on product + platform, execute:
+Clone the official demo repo into a **separate directory** (not inside the user's project):
 
 **iOS (Live):**
 ```bash
+cd /tmp  # or any directory outside the user's project
 git clone https://github.com/Tencent-RTC/TUIKit_iOS.git
 cd TUIKit_iOS/application
 pod install --repo-update
 ```
 
-Provide equivalent commands for other platforms. If the tool can execute commands, run them directly. If not, present as a copy-paste block.
+**Important:** Always fetch https://trtc.io/document/60455.md first to get the latest repo URLs and setup instructions per platform. The above is an example — the doc is the source of truth.
 
 ### A1.3 — Configure
 
-Insert the developer's SDKAppID and SecretKey into the config file:
+Insert the developer's SDKAppID and SecretKey into the demo's config file (NOT the user's project):
 
-**iOS:** Edit `GenerateTestUserSig.swift`:
+**iOS:** Edit `GenerateTestUserSig.swift` in the cloned demo:
 ```swift
 let SDKAPPID: Int32 = <user's SDKAppID>
 let SECRETKEY = "<user's SecretKey>"
@@ -133,8 +138,6 @@ Guide the build process. Monitor for common errors:
 > You're seeing [product] in action. Want to integrate this into your own project?
 > - Yes → _I'll help you set it up_ (→ Path A2)
 > - No → _When you're ready, just ask!_
-
-Demo reference: https://trtc.io/zh/document/60455.md
 
 ---
 
