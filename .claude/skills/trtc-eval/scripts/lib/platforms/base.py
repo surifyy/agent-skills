@@ -38,12 +38,22 @@ class PlatformAdapter(ABC):
         """Gracefully stop the demo process."""
 
     @abstractmethod
-    def log_stream_command(self, device: Device, nonce: str | None = None) -> list[str]:
+    def log_stream_command(
+        self,
+        device: Device,
+        *,
+        nonce: str | None = None,
+        workspace: Path | None = None,
+    ) -> list[str]:
         """Return a command array for subprocess.Popen whose stdout IS runtime.log content.
         This method MUST NOT start the process itself.
 
         If nonce is provided, the command should launch the app with --console
         (combining launch + log capture in one process).
+
+        `workspace` is used by platforms whose log stream driver must know the
+        demo project path (e.g., Web's log-bridge spawning `npm run dev`).
+        Native platforms (iOS/Android) can ignore it.
         """
 
     def ensure_booted(self, device: Device) -> int:

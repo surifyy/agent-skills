@@ -10,12 +10,19 @@ Responsibilities:
    - Android: detect Activity subclass or @Composable entry → overwrite MainActivity.kt
    - Web: detect exported entry (default export / named export) → patch main.ts to import & mount
    (Rule: "Injected code must be reachable from the application entry point.")
+4. **Default routing (web-only, v1)**: When ``demo_injection_map`` does not cover some files in
+   ``ai_extracted_code/``, call ``scripts.lib.file_naming.resolve_ai_filenames`` to assign logical
+   names based on header-comment hints, relative-import reverse-inference, and framework default
+   entry convention. Unroutable non-code blocks (.xml/.plist/.json/...) are parked in
+   ``case_dir/ai_unrouted/`` so they remain auditable without polluting workspace.
 """
 import json
 import re
 import shutil
 import subprocess
 from pathlib import Path
+
+from scripts.lib.file_naming import resolve_ai_filenames
 
 
 class InjectError(Exception):
@@ -552,12 +559,24 @@ bootstrap().catch((err) => {{
 # Platform dispatcher
 # ---------------------------------------------------------------------------
 
-def _apply_entry_bridge(workspace: Path, injected_dst_files: list[Path], platform: str) -> None:
+def _apply_entry_bridge(
+    workspace: Path,
+    injected_dst_files: list[Path],
+    platform: str,
+    framework: str | None = None,
+) -> None:
     """Apply entry bridge generation based on platform.
 
     Rule: "Injected code must be reachable from the application entry point."
 
     Supports: ios, android, web.
+
+    For web, the behavior splits:
+      - framework="vanilla" (or None): keep the legacy behavior of rewriting
+        src/main.ts to import and invoke the injected module. Back-compat for
+        any case that does not opt into a framework profile.
+      - framework in {vue3, vue2, react}: the profile's main.ts is authoritative
+        and imports a fixed entry filename. Just assert the entry exists.
     """
     if platform == "ios":
         result = _extract_entry_viewcontroller(injected_dst_files)
@@ -573,26 +592,191 @@ def _apply_entry_bridge(workspace: Path, injected_dst_files: list[Path], platfor
             _generate_entry_bridge_android(workspace, entry_type, entry_class, entry_package)
 
     elif platform == "web":
-        result = _extract_entry_web(injected_dst_files)
-        if result:
-            entry_type, entry_name, entry_file = result
-            _generate_entry_bridge_web(workspace, entry_type, entry_name, entry_file)
+        fw = framework or "vanilla"
+        if fw == "vanilla":
+            result = _extract_entry_web(injected_dst_files)
+            if result:
+                entry_type, entry_name, entry_file = result
+                _generate_entry_bridge_web(workspace, entry_type, entry_name, entry_file)
+        else:
+            _assert_web_entry_present(workspace, fw, injected_dst_files)
+
+
+# ---------------------------------------------------------------------------
+# Default routing helpers (v1: web-only)
+# ---------------------------------------------------------------------------
+
+def _default_injection_map(
+    ai_code_dir: Path,
+    platform: str,
+    framework: str | None,
+) -> dict[str, dict]:
+    """Build a best-effort injection_map for files not covered by cases.json.
+
+    Web: every resolved "code" file lands in ``src/generated/<logical_name>``.
+    Other platforms: v1 does not emit a default map (existing explicit maps
+    continue to work unchanged).
+    """
+    if platform != "web":
+        return {}
+    resolved = resolve_ai_filenames(ai_code_dir, platform, framework)
+    out: dict[str, dict] = {}
+    for original, rn in resolved.items():
+        if rn.kind != "code":
+            continue
+        out[original] = {
+            "target_file": f"src/generated/{rn.logical_name}",
+            "replace_mode": "overwrite",
+        }
+    return out
+
+
+def _park_unrouted_files(
+    ai_code_dir: Path,
+    case_dir: Path,
+    platform: str,
+    framework: str | None,
+) -> list[str]:
+    """Copy config/unknown-kind AI blocks to ``case_dir/ai_unrouted/`` so they
+    remain auditable without polluting the demo workspace. Returns the list of
+    original filenames that were parked.
+    """
+    resolved = resolve_ai_filenames(ai_code_dir, platform, framework)
+    parked: list[str] = []
+    dst_dir = case_dir / "ai_unrouted"
+    for original, rn in resolved.items():
+        if rn.kind == "code":
+            continue
+        src = ai_code_dir / original
+        if not src.exists():
+            continue
+        dst_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dst_dir / original)
+        parked.append(original)
+    return parked
+
+
+def _assert_web_entry_present(
+    workspace: Path,
+    framework: str,
+    injected_dst_files: list[Path],
+) -> None:
+    """For profile-based web runs, verify the profile's expected entry file
+    actually exists in ``src/generated/``. If the default-routed files do
+    not include one (common when AI only returns composables / helpers),
+    synthesize a minimal skeleton that imports them — this keeps the demo
+    compilable and lets the injected code be evaluated for runtime signals.
+    """
+    expected = {
+        "vue3": "src/generated/App.vue",
+        "vue2": "src/generated/App.vue",
+        "react": "src/generated/App.tsx",
+        "vanilla": "src/generated/index.ts",
+    }.get(framework)
+    if not expected:
+        return
+    entry_path = workspace / expected
+    if entry_path.exists():
+        return
+
+    # Synthesize a minimal entry that imports every routed file in
+    # src/generated/ so that the composables' top-level side effects run
+    # (subscribe to events, console.log, etc.).
+    generated_dir = workspace / "src" / "generated"
+    sibling_imports: list[str] = []
+    if generated_dir.is_dir():
+        for f in sorted(generated_dir.iterdir()):
+            if f.name == entry_path.name:
+                continue
+            if f.suffix.lower() in (".ts", ".tsx", ".js", ".jsx", ".mjs", ".vue"):
+                # Strip extensions Vite resolves automatically to keep imports clean
+                stem = f.stem if f.suffix != ".vue" else f.name
+                sibling_imports.append(stem)
+
+    if not sibling_imports:
+        # Nothing to wire up — fail loudly rather than generate a blank shell.
+        raise InjectError(
+            f"web framework '{framework}' profile expects {expected} but no "
+            f"injected code was produced. AI output may have been empty or "
+            f"fully non-code. Injected files: "
+            f"{[str(p.relative_to(workspace)) for p in injected_dst_files]}"
+        )
+
+    entry_path.parent.mkdir(parents=True, exist_ok=True)
+    if framework in ("vue3", "vue2"):
+        imports = "\n".join(f'import "./{name}";' for name in sibling_imports)
+        skel = (
+            f"<!-- auto-generated skeleton (no AI-provided entry) -->\n"
+            f"<script setup lang=\"ts\">\n"
+            f"{imports}\n"
+            f"</script>\n"
+            f"<template>\n"
+            f"  <div class=\"eval-skeleton\">\n"
+            f"    <!-- generated shells: {', '.join(sibling_imports)} -->\n"
+            f"    MyApplication (eval skeleton)\n"
+            f"  </div>\n"
+            f"</template>\n"
+        )
+    elif framework == "react":
+        imports = "\n".join(f'import "./{name}";' for name in sibling_imports)
+        skel = (
+            f"// auto-generated skeleton (no AI-provided entry)\n"
+            f"import React from \"react\";\n"
+            f"{imports}\n"
+            f"export default function App(): React.ReactElement {{\n"
+            f"  return React.createElement(\"div\", null, \"MyApplication (eval skeleton)\");\n"
+            f"}}\n"
+        )
+    else:  # vanilla
+        imports = "\n".join(f'import "./{name}";' for name in sibling_imports)
+        skel = (
+            f"// auto-generated skeleton (no AI-provided entry)\n"
+            f"{imports}\n"
+            f"export function run(): void {{\n"
+            f"  console.log(\"[vanilla] eval skeleton loaded siblings:\", "
+            f"{sibling_imports!r});\n"
+            f"}}\n"
+        )
+    entry_path.write_text(skel)
 
 
 # ---------------------------------------------------------------------------
 # Main injection logic
 # ---------------------------------------------------------------------------
 
-def inject(workspace: Path, ai_code_dir: Path, injection_map: dict, platform: str = "ios") -> None:
+def inject(
+    workspace: Path,
+    ai_code_dir: Path,
+    injection_map: dict,
+    platform: str = "ios",
+    framework: str | None = None,
+    case_dir: Path | None = None,
+) -> None:
     """Inject AI-generated code into workspace.
 
-    injection_map: dict mapping ai_filename -> InjectionPoint model or dict with target_file.
-    Targets not yet in INJECTION.json will be auto-registered before injection.
+    injection_map: dict mapping ai_filename -> InjectionPoint model or dict
+    with target_file. Targets not yet in INJECTION.json are auto-registered.
 
-    After injection, an entry bridge is generated to ensure the injected code is loaded
-    at application startup (required for dynamic evaluation).
+    For web, any AI files not covered by ``injection_map`` are routed via
+    ``_default_injection_map`` (header-comment hints → import reverse-inference
+    → framework entry → block_NN fallback). Non-code blocks are parked in
+    ``case_dir/ai_unrouted/`` to avoid workspace pollution.
+
+    After injection, an entry bridge is generated to ensure the injected code
+    is loaded at application startup (required for dynamic evaluation).
     """
-    # Auto-supplement injection points declared by the test case
+    injection_map = dict(injection_map or {})
+
+    parked: list[str] = []
+    if platform == "web":
+        defaults = _default_injection_map(ai_code_dir, platform, framework)
+        # Explicit map entries win over defaults.
+        merged = {**defaults, **injection_map}
+        injection_map = merged
+        if case_dir is not None:
+            parked = _park_unrouted_files(ai_code_dir, case_dir, platform, framework)
+
+    # Auto-supplement injection points declared by the case or defaults.
     _ensure_injection_points(workspace, injection_map)
 
     cfg = _load_injection_config(workspace)
@@ -613,19 +797,77 @@ def inject(workspace: Path, ai_code_dir: Path, injection_map: dict, platform: st
         injected_dst_files.append(dst)
 
     # Entry Bridge: ensure injected code is loaded at app startup
-    _apply_entry_bridge(workspace, injected_dst_files, platform)
+    _apply_entry_bridge(workspace, injected_dst_files, platform, framework=framework)
 
-    _record_diff(workspace)
+    # Audit trail: record what the injector decided + the final diff
+    _write_resolved_map(workspace, injection_map, parked, framework)
+    _record_diff(workspace, injected_dst_files)
 
 
-def _record_diff(workspace: Path) -> None:
-    """Record git diff for audit."""
+def _write_resolved_map(
+    workspace: Path,
+    injection_map: dict,
+    parked: list[str],
+    framework: str | None,
+) -> None:
+    """Persist the final merged injection_map + parked files to
+    ``workspace/.eval-meta/resolved_injection_map.json`` for debugging."""
     meta = workspace / ".eval-meta"
     meta.mkdir(exist_ok=True)
-    out = subprocess.run(
+    out_map: dict[str, dict] = {}
+    for ai_file, point in injection_map.items():
+        target = point.target_file if hasattr(point, "target_file") else point.get("target_file", "")
+        mode = (
+            point.replace_mode if hasattr(point, "replace_mode")
+            else point.get("replace_mode", "overwrite")
+        )
+        out_map[ai_file] = {"target_file": target, "replace_mode": mode}
+    payload = {
+        "framework": framework,
+        "map": out_map,
+        "unrouted": parked,
+    }
+    (meta / "resolved_injection_map.json").write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+    )
+
+
+def _record_diff(workspace: Path, injected_dst_files: list[Path] | None = None) -> None:
+    """Record which files the injector touched, for Gate D + audit.
+
+    Writes one line per injected file relative to workspace, with size in bytes.
+    If git is available inside workspace, we also append the ``git diff --stat``
+    output for extra context, but git is NOT required — the injected-file
+    listing is the authoritative source.
+
+    Example contents:
+        # injected files (3)
+        src/generated/App.vue  1843 bytes
+        src/generated/auth.ts   612 bytes
+        src/generated/block_00.ts  120 bytes
+    """
+    meta = workspace / ".eval-meta"
+    meta.mkdir(exist_ok=True)
+
+    lines: list[str] = []
+    files = injected_dst_files or []
+    lines.append(f"# injected files ({len(files)})")
+    for f in files:
+        try:
+            rel = f.relative_to(workspace)
+        except ValueError:
+            rel = f
+        size = f.stat().st_size if f.exists() else 0
+        lines.append(f"{rel}\t{size} bytes")
+
+    # Best-effort git diff — only emit if it actually returns something useful.
+    git_out = subprocess.run(
         ["git", "-C", str(workspace), "diff", "--stat", "."],
         capture_output=True, text=True, check=False,
     )
-    (meta / "injection_diff.txt").write_text(
-        out.stdout if out.returncode == 0 else "[git diff unavailable]\n"
-    )
+    if git_out.returncode == 0 and git_out.stdout.strip():
+        lines.append("")
+        lines.append("# git diff --stat")
+        lines.append(git_out.stdout.rstrip())
+
+    (meta / "injection_diff.txt").write_text("\n".join(lines) + "\n")

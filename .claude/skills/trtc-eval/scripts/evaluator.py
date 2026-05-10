@@ -11,6 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.lib.eval_config import skill_root
+from scripts.lib.eval_config import skill_root
 from scripts.lib.schemas import Case, StaticResult
 
 
@@ -70,7 +72,7 @@ def main() -> int:
     code_dir = case_dir / "ai_extracted_code"
 
     # Load case
-    cases_data = json.loads(Path("tests/benchmark/cases.json").read_text())
+    cases_data = json.loads((skill_root() / "tests" / "benchmark" / "cases.json").read_text())
     case_raw = next((c for c in cases_data if c["test_id"] == args.case_id), None)
     if case_raw is None:
         print(f"ERROR: case '{args.case_id}' not found", file=sys.stderr)

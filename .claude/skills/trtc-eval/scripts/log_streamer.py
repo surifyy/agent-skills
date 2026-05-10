@@ -37,9 +37,12 @@ def main() -> int:
     if args.mode == "start":
         device = Device(kind=args.device_kind, id=args.device_id, extra={})  # type: ignore[arg-type]
         adapter = get_adapter(args.platform)
-        # Pass nonce so log_stream_command can build a --console launch command
+        # Pass nonce so log_stream_command can build a --console launch command.
+        # `workspace` is required by the Web adapter (log-bridge needs the demo
+        # project path to spawn `npm run dev`); native platforms ignore it.
         nonce = args.nonce or os.environ.get("EVAL_RUN_NONCE")
-        cmd = adapter.log_stream_command(device, nonce=nonce)
+        workspace = case_dir / "workspace"
+        cmd = adapter.log_stream_command(device, nonce=nonce, workspace=workspace)
 
         # For real device launches via devicectl, environment variables need
         # the DEVICECTL_CHILD_ prefix to be forwarded to the remote app.

@@ -17,12 +17,15 @@ description: >
 
 ## 执行步骤（你，主 Agent，严格按顺序执行）
 
+> **工作目录**：所有 `python scripts/...` 命令都从本 skill 目录运行。开始前先 `cd .claude/skills/trtc-eval/`（脚本通过 `__file__` 解析 skill_root，所以 cwd 实际不影响数据路径，但保持习惯让命令简短）。
+> **eval-runs 路径**：每次运行的产物落在仓库根的 `.claude/eval-runs/{ts}/`，不在 skill 目录里。下面示例统一用相对 skill 目录的 `../../../.claude/eval-runs/{ts}` 表示。
+
 ### Step 1：加载 eval set
 - 执行 `python scripts/selfcheck.py --phase=pre-run` 校验环境
   - 校验失败 → 停止，把 selfcheck.json 摘要给用户，让用户修
 - 读取 `tests/benchmark/cases.json`
 - 按用户过滤条件筛出要跑的用例列表
-- 创建本次运行目录 `.codebuddy/eval-runs/{ISO8601}/`，写 run.manifest.json
+- 创建本次运行目录 `../../../.claude/eval-runs/{ISO8601}/`，写 run.manifest.json
 
 ### Step 2：串行调用 orchestrator 跑每条用例
 对筛出的每条用例（**串行，不并发**），用 `execute_command` 工具调用 orchestrator：
@@ -30,7 +33,7 @@ description: >
 ```bash
 python scripts/case_runner_orchestrator.py \
   --case-id={test_id} \
-  --run-dir=.codebuddy/eval-runs/{ts}
+  --run-dir=../../../.claude/eval-runs/{ts}
 ```
 
 **关键约束**：
@@ -41,9 +44,9 @@ python scripts/case_runner_orchestrator.py \
 - 如果你需要看分数，**只读** `{run_dir}/cases/{test_id}/summary.json`。
 
 ### Step 3：汇总 & 出报告
-- 所有用例跑完后，执行 `python scripts/report.py build --run-dir=.codebuddy/eval-runs/{ts}`
+- 所有用例跑完后，执行 `python scripts/report.py build --run-dir=../../../.claude/eval-runs/{ts}`
 - （可选）如果用户要求 diff：`python scripts/report.py diff --baseline=<旧 run_dir> --current=<新 run_dir>`
-- 执行 `python scripts/selfcheck.py --phase=post-run --run-dir=.codebuddy/eval-runs/{ts}` 再次自查
+- 执行 `python scripts/selfcheck.py --phase=post-run --run-dir=../../../.claude/eval-runs/{ts}` 再次自查
 - 把 `report.md` 路径和 `selfcheck.json` 中的 `verdict` 字段一起给用户
 
 ## 你（主 Agent）的铁律

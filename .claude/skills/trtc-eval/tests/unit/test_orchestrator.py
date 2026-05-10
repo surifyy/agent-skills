@@ -56,6 +56,11 @@ def test_trace_line_count(tmp_path, monkeypatch):
     from scripts.lib.platforms.base import Device
     fake_device = Device(kind="simulator", id="fake-udid", extra={})
 
+    # cases.json is now read from the absolute _SKILL_ROOT, so re-anchor it
+    # at tmp_path. Must be done BEFORE main() runs.
+    import scripts.case_runner_orchestrator as orch
+    monkeypatch.setattr(orch, "_SKILL_ROOT", tmp_path)
+
     with patch("subprocess.run", return_value=fake_proc), \
          patch("scripts.case_runner_orchestrator._pick_device", return_value=fake_device):
         from scripts.case_runner_orchestrator import main
@@ -107,6 +112,9 @@ def test_build_failure_skips_remaining(tmp_path, monkeypatch):
     from scripts.lib.platforms.base import Device
     fake_device = Device(kind="simulator", id="fake-udid", extra={})
 
+    import scripts.case_runner_orchestrator as orch
+    monkeypatch.setattr(orch, "_SKILL_ROOT", tmp_path)
+
     with patch("subprocess.run", side_effect=fake_subprocess_run), \
          patch("scripts.case_runner_orchestrator._pick_device", return_value=fake_device):
         from scripts.case_runner_orchestrator import main
@@ -148,6 +156,9 @@ def test_no_device_exits_4(tmp_path, monkeypatch):
     fake_proc.returncode = 0
     fake_proc.stdout = b'{}'
     fake_proc.stderr = b''
+
+    import scripts.case_runner_orchestrator as orch
+    monkeypatch.setattr(orch, "_SKILL_ROOT", tmp_path)
 
     with patch("subprocess.run", return_value=fake_proc), \
          patch("scripts.case_runner_orchestrator._pick_device", return_value=None):

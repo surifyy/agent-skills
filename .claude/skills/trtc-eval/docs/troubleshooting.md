@@ -37,5 +37,5 @@ Common issues when running the eval tool.
 - Gate C: trace order wrong → check orchestrator STEPS list integrity
 
 ## Template Not Found
-**Symptom**: `FileNotFoundError: templates/ios-demo/INJECTION.json missing`
-**Fix**: Run `./bootstrap.sh` to clone templates from `Hanpto/project_template`
+**Symptom**: `FileNotFoundError: <skill_root>/templates/ios-demo/INJECTION.json missing`
+**Fix**: From the skill directory (`cd .claude/skills/trtc-eval/`), run `./bootstrap.sh` to clone templates from `Hanpto/project_template`

@@ -146,6 +146,24 @@ class IOSAdapter(PlatformAdapter):
             ]
 
         with open(compile_log, "w") as log_f:
+            # Strip macOS extended attributes (AppleDouble `._*`,
+            # com.apple.FinderInfo, com.apple.ResourceFork, com.apple.quarantine,
+            # etc.) that CocoaPods-vendored frameworks often carry. Modern
+            # codesign refuses to sign bundles containing these, which manifests
+            # as:
+            #   "resource fork, Finder information, or similar detritus not allowed"
+            # xattr -cr is idempotent and cheap (~<1s on a typical workspace).
+            log_f.write("=== xattr -cr (strip macOS extended attributes) ===\n")
+            log_f.flush()
+            xattr_proc = subprocess.run(
+                ["xattr", "-cr", str(workspace)],
+                stdout=log_f,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            log_f.write(f"=== xattr exit={xattr_proc.returncode} ===\n\n")
+            log_f.flush()
+
             proc = subprocess.run(
                 build_cmd,
                 cwd=str(workspace),
@@ -195,7 +213,16 @@ class IOSAdapter(PlatformAdapter):
                 capture_output=True, check=False,
             )
 
-    def log_stream_command(self, device: Device, nonce: str | None = None) -> list[str]:
+    def log_stream_command(
+        self,
+        device: Device,
+        *,
+        nonce: str | None = None,
+        workspace: Path | None = None,
+    ) -> list[str]:
+        # `workspace` is unused on iOS (native tools handle launch); accepted
+        # for ABC compatibility with Web's log-bridge contract.
+        del workspace
         # Use --console mode: launch the app and bridge its stdout/stderr as the log stream.
         # This combines app launch + log capture into a single blocking process.
         if device.kind == "simulator":

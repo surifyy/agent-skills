@@ -18,12 +18,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.lib.eval_config import skill_root, repo_root
+
 
 def _grep_in_scripts(pattern: str) -> list[str]:
     """Grep scripts/ for a pattern. Returns matching filenames."""
+    scripts_dir = skill_root() / "scripts"
     try:
         proc = subprocess.run(
-            ["rg", "-l", pattern, "scripts/"],
+            ["rg", "-l", pattern, str(scripts_dir)],
             capture_output=True, text=True, check=False,
         )
         if proc.returncode == 0 and proc.stdout.strip():
@@ -31,7 +34,7 @@ def _grep_in_scripts(pattern: str) -> list[str]:
     except (FileNotFoundError, PermissionError):
         # rg not available, fallback to Python grep
         hits = []
-        for py_file in Path("scripts").rglob("*.py"):
+        for py_file in scripts_dir.rglob("*.py"):
             if "selfcheck" in py_file.name:
                 continue  # don't flag ourselves
             content = py_file.read_text(errors="replace")
@@ -81,14 +84,28 @@ def phase_pre_run() -> dict:
             continue
     check("cli_available", cli_ok, "claude or codebuddy CLI must be installed")
 
-    # Test account env vars
-    for var in ["TRTC_TEST_SDKAPPID", "TRTC_TEST_USERID", "TRTC_TEST_USERSIG"]:
-        import os
-        val = os.environ.get(var, "")
-        check(f"env_{var}", len(val) > 0, f"${var} must be non-empty")
+    # Test account — now loaded via scripts.lib.eval_config (config.json
+    # preferred, shell env as per-field fallback). A single failure here
+    # points operators at config.example.json instead of leaving them
+    # guessing which env var to export.
+    try:
+        from scripts.lib.eval_config import load_config, EvalConfigError
+        try:
+            cfg = load_config()
+            check("creds_sdk_app_id", cfg.trtc_test_account.sdk_app_id > 0,
+                  "sdk_app_id must be a positive integer")
+            check("creds_user_id", bool(cfg.trtc_test_account.user_id),
+                  "user_id must be a non-empty string")
+            check("creds_user_sig", bool(cfg.trtc_test_account.user_sig),
+                  "user_sig must be a non-empty string")
+            check("creds_source", True, f"loaded via {cfg.source}")
+        except EvalConfigError as e:
+            check("creds_loadable", False, str(e))
+    except Exception as e:  # pragma: no cover — defensive, import-time errors
+        check("creds_module_importable", False, f"{type(e).__name__}: {e}")
 
     # cases.json exists and is valid JSON
-    cases_path = Path("tests/benchmark/cases.json")
+    cases_path = skill_root() / "tests" / "benchmark" / "cases.json"
     if cases_path.exists():
         try:
             data = json.loads(cases_path.read_text())
@@ -96,7 +113,7 @@ def phase_pre_run() -> dict:
         except json.JSONDecodeError as e:
             check("cases_json_valid", False, str(e))
     else:
-        check("cases_json_exists", False, "tests/benchmark/cases.json not found")
+        check("cases_json_exists", False, f"{cases_path} not found")
 
     # Source hygiene: grep for mock/fake/stub keywords
     mock_pattern = r"MOCK|mock_|fake_|stub_|hardcoded_log|return_sample|read_fixture|FIXTURE_PATH|sample_logcat|sample_syslog"
@@ -113,7 +130,7 @@ def phase_pre_run() -> dict:
           f"Found fixture paths in: {path_hits}" if path_hits else "")
 
     # AST scan: no import tests
-    import_violations = _ast_check_imports(Path("scripts"))
+    import_violations = _ast_check_imports(skill_root() / "scripts")
     check("ast_no_test_imports", len(import_violations) == 0,
           f"Violations: {import_violations}" if import_violations else "")
 
@@ -135,7 +152,7 @@ def phase_post_run(run_dir: Path) -> dict:
         check("A", "cases_dir_exists", False, f"{cases_dir} not found")
         return results
 
-    fixture_dir = Path("tests/unit/fixtures")
+    fixture_dir = skill_root() / "tests" / "unit" / "fixtures"
 
     for case_path in sorted(cases_dir.iterdir()):
         if not case_path.is_dir():
@@ -215,6 +232,16 @@ def phase_post_run(run_dir: Path) -> dict:
         else:
             check("C", f"{tid}/trace_exists", False, "trace.jsonl missing")
 
+        # Gate D: Injection completeness — if AI produced any code,
+        # injection_diff.txt MUST be non-empty. Catches the case where
+        # cases.json is misconfigured or default routing fails silently.
+        ai_code_dir = case_path / "ai_extracted_code"
+        if ai_code_dir.exists() and any(ai_code_dir.iterdir()):
+            diff_path = case_path / "workspace" / ".eval-meta" / "injection_diff.txt"
+            check("D", f"{tid}/injection_diff_nonempty",
+                  diff_path.exists() and diff_path.stat().st_size > 0,
+                  "AI produced code but injection_diff.txt empty/missing")
+
     # Scoreboard row count
     scoreboard = run_dir / "scoreboard.csv"
     if scoreboard.exists():
@@ -236,7 +263,7 @@ def phase_cases_lint() -> dict:
         if not ok:
             results["passed"] = False
 
-    cases_path = Path("tests/benchmark/cases.json")
+    cases_path = skill_root() / "tests" / "benchmark" / "cases.json"
     if not cases_path.exists():
         check("file_exists", False)
         return results
@@ -290,7 +317,7 @@ def main() -> int:
     if args.run_dir:
         output_path = Path(args.run_dir).resolve() / "selfcheck.json"
     elif args.phase == "pre-run":
-        output_path = Path(".claude/eval-runs/selfcheck_prerun.json")
+        output_path = repo_root() / ".claude" / "eval-runs" / "selfcheck_prerun.json"
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
     output = json.dumps(result, indent=2, ensure_ascii=False)

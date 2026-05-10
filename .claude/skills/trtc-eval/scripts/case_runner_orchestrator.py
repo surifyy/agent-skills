@@ -16,13 +16,14 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Project root (where bootstrap.sh lives)
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# Skill root (where bootstrap.sh / scripts / tests / templates all live)
+_SKILL_ROOT = Path(__file__).resolve().parent.parent
 
-# Ensure project root is on sys.path for imports
-sys.path.insert(0, str(_PROJECT_ROOT))
+# Ensure skill root is on sys.path for `from scripts.lib...` imports
+sys.path.insert(0, str(_SKILL_ROOT))
 
 from scripts.lib.schemas import Case, CaseSummary, StaticResult, DynamicResult
+from scripts.lib.eval_config import load_config, EvalConfigError, TrtcTestAccount
 from scripts.lib.device_picker import pick as _pick_device
 from scripts.lib.platforms import get_adapter
 from scripts.lib.template_fetcher import PLATFORM_TO_DIR
@@ -38,14 +39,14 @@ def _ensure_templates(platform: str) -> None:
     if dir_name is None:
         return  # Unknown platform, let downstream handle the error
 
-    template_dir = _PROJECT_ROOT / "templates" / dir_name
+    template_dir = _SKILL_ROOT / "templates" / dir_name
     injection_file = template_dir / "INJECTION.json"
 
     if injection_file.exists():
         return  # Template already available
 
     # Template missing — run bootstrap.sh to set up the environment
-    bootstrap_script = _PROJECT_ROOT / "bootstrap.sh"
+    bootstrap_script = _SKILL_ROOT / "bootstrap.sh"
     if not bootstrap_script.exists():
         print(
             f"WARNING: Template '{dir_name}/INJECTION.json' missing and bootstrap.sh not found.",
@@ -58,7 +59,7 @@ def _ensure_templates(platform: str) -> None:
     try:
         proc = subprocess.run(
             ["bash", str(bootstrap_script)],
-            cwd=str(_PROJECT_ROOT),
+            cwd=str(_SKILL_ROOT),
             timeout=300,
             capture_output=True,
         )
@@ -88,17 +89,48 @@ def _append_trace(trace_path: Path, data: dict) -> None:
         f.write(json.dumps(data, ensure_ascii=False) + "\n")
 
 
+def _apply_creds_to_env(env: dict, account: TrtcTestAccount) -> None:
+    """Fill TRTC_TEST_* keys in ``env`` only if not already set by the caller.
+    Shell env wins over config.json — config only fills gaps. This matches the
+    per-field resolution inside load_config() and keeps CI secret injection
+    working even when a repo-local config.json has placeholders.
+    """
+    env.setdefault("TRTC_TEST_SDKAPPID", str(account.sdk_app_id))
+    env.setdefault("TRTC_TEST_USERID", account.user_id)
+    env.setdefault("TRTC_TEST_USERSIG", account.user_sig)
+
+
+def _write_case_creds(case_dir: Path, account: TrtcTestAccount) -> None:
+    """Persist the resolved TRTC test creds to ``<case_dir>/.eval-meta/launch.env``.
+
+    This file is the authoritative source for platform-specific injectors:
+    - scripts/log-bridge.mjs reads it to populate VITE_TRTC_TEST_* in .env.local
+    - ios/android adapters could consume it for real-device --setenv in the future
+
+    Format: one ``KEY=value`` per line, no quoting. Values are not expected to
+    contain newlines (TRTC userSig is base64/percent-encoded).
+    """
+    meta = case_dir / ".eval-meta"
+    meta.mkdir(parents=True, exist_ok=True)
+    (meta / "launch.env").write_text(
+        f"TRTC_TEST_SDKAPPID={account.sdk_app_id}\n"
+        f"TRTC_TEST_USERID={account.user_id}\n"
+        f"TRTC_TEST_USERSIG={account.user_sig}\n"
+    )
+
+
 _PY = sys.executable  # Use the same Python interpreter for subprocesses
+_SCRIPTS_DIR = _SKILL_ROOT / "scripts"  # Absolute path so subprocess cwd doesn't matter
 
 STEPS = [
     # (name, cmd_builder, required_for_pass)
-    ("run_ai", lambda c, d, e: [_PY, "scripts/run_ai.py", "--case-id", c.test_id, "--run-dir", d], True),
-    ("evaluator", lambda c, d, e: [_PY, "scripts/evaluator.py", "--case-id", c.test_id, "--run-dir", d], True),
-    ("demo_build", lambda c, d, e: [_PY, "scripts/demo_runner.py", "--case-id", c.test_id, "--run-dir", d, "--phase=build"], True),
-    ("log_stream_start", lambda c, d, e: [_PY, "scripts/log_streamer.py", "--case-id", c.test_id, "--run-dir", d, "--mode=start"], False),
-    ("demo_run", lambda c, d, e: [_PY, "scripts/demo_runner.py", "--case-id", c.test_id, "--run-dir", d, "--phase=run"], False),
-    ("log_stream_stop", lambda c, d, e: [_PY, "scripts/log_streamer.py", "--case-id", c.test_id, "--run-dir", d, "--mode=stop"], False),
-    ("runtime_monitor", lambda c, d, e: [_PY, "scripts/runtime_monitor.py", "--case-id", c.test_id, "--run-dir", d], False),
+    ("run_ai", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "run_ai.py"), "--case-id", c.test_id, "--run-dir", d], True),
+    ("evaluator", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "evaluator.py"), "--case-id", c.test_id, "--run-dir", d], True),
+    ("demo_build", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "demo_runner.py"), "--case-id", c.test_id, "--run-dir", d, "--phase=build"], True),
+    ("log_stream_start", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "log_streamer.py"), "--case-id", c.test_id, "--run-dir", d, "--mode=start"], False),
+    ("demo_run", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "demo_runner.py"), "--case-id", c.test_id, "--run-dir", d, "--phase=run"], False),
+    ("log_stream_stop", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "log_streamer.py"), "--case-id", c.test_id, "--run-dir", d, "--mode=stop"], False),
+    ("runtime_monitor", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "runtime_monitor.py"), "--case-id", c.test_id, "--run-dir", d], False),
 ]
 
 
@@ -171,9 +203,9 @@ def main() -> int:
     trace_path = case_dir / "trace.jsonl"
 
     # 1) Load case
-    cases_path = Path("tests/benchmark/cases.json")
+    cases_path = _SKILL_ROOT / "tests" / "benchmark" / "cases.json"
     if not cases_path.exists():
-        print(json.dumps({"error": "tests/benchmark/cases.json not found"}), file=sys.stderr)
+        print(json.dumps({"error": f"{cases_path} not found"}), file=sys.stderr)
         return 1
     cases_data = json.loads(cases_path.read_text())
     case_raw = next((c for c in cases_data if c["test_id"] == args.case_id), None)
@@ -189,11 +221,29 @@ def main() -> int:
     nonce = secrets.token_hex(16)
     env = {**os.environ, "EVAL_RUN_NONCE": nonce}
 
+    # 2a) Load TRTC test credentials from skill config (falls back to shell env).
+    # setdefault() means shell env still wins for CI secret injection; config
+    # only fills gaps. Credentials are also persisted to a per-case launch.env
+    # file so platform-specific layers (log-bridge for web, launch --console
+    # for ios/android) can locate them deterministically.
+    try:
+        eval_cfg = load_config()
+    except EvalConfigError as e:
+        print(json.dumps({"error": "config_missing", "detail": str(e)}), file=sys.stderr)
+        return 7
+    _apply_creds_to_env(env, eval_cfg.trtc_test_account)
+    _write_case_creds(case_dir, eval_cfg.trtc_test_account)
+
     # Inject auto_run_flow into environment so the App's AutoRunCoordinator picks it up
     if case.auto_run_flow:
         env["EVAL_AUTO_RUN_FLOW"] = case.auto_run_flow[0]
 
-    _append_trace(trace_path, {"step": "_meta", "nonce": nonce, "ts": _now()})
+    _append_trace(trace_path, {
+        "step": "_meta",
+        "nonce": nonce,
+        "creds_source": eval_cfg.source,
+        "ts": _now(),
+    })
 
     # 3) Run steps in order
     build_failed = False

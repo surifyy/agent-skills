@@ -12,11 +12,11 @@ build/
 # Eval runs (never commit — may contain PII in logs)
 .claude/eval-runs/
 
-# Template cache (cloned by bootstrap.sh)
-.cache/
-templates/ios-demo/
-templates/android-demo/
-templates/web-demo/
+# Template cache (cloned by bootstrap.sh into the trtc-eval skill dir)
+.claude/skills/trtc-eval/.cache/
+.claude/skills/trtc-eval/templates/ios-demo/
+.claude/skills/trtc-eval/templates/android-demo/
+.claude/skills/trtc-eval/templates/web-demo/
 
 # IDE
 .idea/
@@ -28,3 +28,6 @@ templates/web-demo/
 .env
 .env.local
 .env.*.local
+
+# Skill-level config (contains real TRTC test credentials; example is checked in)
+.claude/skills/trtc-eval/config.json

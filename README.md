@@ -41,9 +41,7 @@ ai-integration/
 │
 ├── llms/                          # llms.txt 模板（供外部 LLM 发现文档）
 ├── llms.txt                       # 产品索引入口
-└── tests/                         # 评估测试
-    ├── results/                  #   6 组评估结果
-    └── xcode-project/            #   编译验证项目
+└── .claude/skills/trtc-eval/      # 评测工具 skill（含 scripts / tests / templates / bootstrap.sh）
 ```
 
 ## 核心概念

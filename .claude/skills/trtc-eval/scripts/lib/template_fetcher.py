@@ -16,7 +16,7 @@ def copy_template(platform: str, case_dir: Path, templates_root: Path) -> Path:
     src = templates_root / dir_name
     if not (src / "INJECTION.json").exists():
         raise FileNotFoundError(
-            f"templates/{dir_name}/INJECTION.json missing — run ./bootstrap.sh first"
+            f"{src}/INJECTION.json missing — run ./bootstrap.sh first"
         )
     dst = case_dir / "workspace"
     if dst.exists():

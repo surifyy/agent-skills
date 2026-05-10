@@ -75,5 +75,14 @@ class AndroidAdapter(PlatformAdapter):
             capture_output=True, check=False,
         )
 
-    def log_stream_command(self, device: Device, nonce: str | None = None) -> list[str]:
+    def log_stream_command(
+        self,
+        device: Device,
+        *,
+        nonce: str | None = None,
+        workspace: Path | None = None,
+    ) -> list[str]:
+        # `nonce`/`workspace` unused on Android (adb logcat captures the
+        # already-launched app); accepted for ABC compatibility.
+        del nonce, workspace
         return ["adb", "-s", device.id, "logcat", "-s", "TRTCSDK:*", "LiveCore:*"]

@@ -12,10 +12,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.lib.cli_driver import invoke_cli
+from scripts.lib.eval_config import repo_root, skill_root
 from scripts.lib.schemas import Case
 
 
-SYSTEM_PROMPT_PATH = Path(".claude/skills/trtc-eval/prompts/ai_driver_system_prompt.md")
+SYSTEM_PROMPT_PATH = skill_root() / "prompts" / "ai_driver_system_prompt.md"
 
 
 def _extract_code_blocks(markdown: str) -> list[tuple[str, str]]:
@@ -93,7 +94,7 @@ def main() -> int:
     case_dir.mkdir(parents=True, exist_ok=True)
 
     # Load case
-    cases_data = json.loads(Path("tests/benchmark/cases.json").read_text())
+    cases_data = json.loads((skill_root() / "tests" / "benchmark" / "cases.json").read_text())
     case_raw = next((c for c in cases_data if c["test_id"] == args.case_id), None)
     if case_raw is None:
         print(f"ERROR: case '{args.case_id}' not found", file=sys.stderr)
@@ -114,7 +115,11 @@ def main() -> int:
     }, ensure_ascii=False, indent=2))
 
     # Invoke CLI
-    project_root = Path.cwd()
+    # IMPORTANT: cwd must be the repo root, not the caller's cwd. The CLI
+    # (codebuddy/claude in -p mode) sandboxes file reads to its cwd; if we
+    # set it to the skill dir, the AI cannot reach `knowledge-base/` and is
+    # forced to answer from training data — defeating the eval.
+    project_root = repo_root()
     try:
         exit_code, raw_output = invoke_cli(full_prompt, cwd=project_root, timeout=300)
     except TimeoutError:

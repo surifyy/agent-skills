@@ -5,10 +5,17 @@
 #   ./bootstrap.sh           # Full setup
 #   ./bootstrap.sh --verify  # Setup + verify (selfcheck pre-run)
 #
+# This script lives at .claude/skills/trtc-eval/bootstrap.sh. It cd's to its
+# own directory so all relative paths (scripts/, tests/, templates/, .cache/)
+# resolve under the skill. The repo-level eval-runs directory uses an
+# absolute REPO_ROOT path so it always lands in <repo>/.claude/eval-runs/.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
+
+# Repo root = three levels up from .claude/skills/trtc-eval/
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 VERIFY=false
 if [[ "${1:-}" == "--verify" ]]; then
@@ -65,6 +72,20 @@ if command -v node &>/dev/null; then
     echo "    node: $(node --version)"
 else
     echo "    node: NOT FOUND (Web build will fail)"
+fi
+
+# Install eval-only Node deps (puppeteer for scripts/log-bridge.mjs). Kept
+# separate from templates/web-demo so demo deps stay clean. Chromium download
+# (~170MB) happens on first install; subsequent runs reuse ~/.cache/puppeteer.
+if [[ -f scripts/package.json ]] && command -v npm &>/dev/null; then
+    if [[ ! -d scripts/node_modules/puppeteer ]]; then
+        echo "  Installing eval Node dependencies (puppeteer)..."
+        (cd scripts && npm install --silent) || {
+            echo "  WARNING: scripts/ npm install failed. Web eval will fail until fixed."
+        }
+    else
+        echo "    scripts/node_modules/puppeteer: present"
+    fi
 fi
 
 if [[ ${#MISSING[@]} -gt 0 ]]; then
@@ -138,7 +159,7 @@ clone_template "web/MyApplication" "templates/web-demo" || true
 # 4. Create necessary directories
 # -------------------------------------------------------
 echo "[4/5] Creating directories..."
-mkdir -p .claude/eval-runs
+mkdir -p "$REPO_ROOT/.claude/eval-runs"
 mkdir -p templates/ios-demo templates/android-demo templates/web-demo
 
 # -------------------------------------------------------
@@ -157,7 +178,7 @@ fi
 echo ""
 echo "=== bootstrap OK ==="
 echo ""
-echo "Next steps:"
+echo "Next steps (run from this directory: $SCRIPT_DIR):"
 echo "  1. Set env vars: TRTC_TEST_SDKAPPID, TRTC_TEST_USERID, TRTC_TEST_USERSIG"
 echo "  2. Run: python scripts/selfcheck.py --phase=cases-lint"
-echo "  3. Run a single case: python scripts/case_runner_orchestrator.py --case-id=TC-LIVE-IOS-001 --run-dir=/tmp/eval-test"
+echo "  3. Run a single case: python scripts/case_runner_orchestrator.py --case-id=TC-LIVE-IOS-001 --run-dir=$REPO_ROOT/.claude/eval-runs/eval-test"

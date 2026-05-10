@@ -10,8 +10,12 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-TRIGGER_LOG = Path(".claude/eval-runs/_trigger_log.jsonl")
+from scripts.lib.eval_config import repo_root
+
+
+TRIGGER_LOG = repo_root() / ".claude" / "eval-runs" / "_trigger_log.jsonl"
 
 
 def main() -> int:

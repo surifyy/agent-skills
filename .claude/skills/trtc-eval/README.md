@@ -5,6 +5,29 @@
 
 ---
 
+## 0. Configuration（首次使用必读）
+
+TRTC 测试凭据通过本目录下的 `config.json` 维护——该文件已 `.gitignore`，含真实 SDKAppID / UserSig，**不要提交**。
+
+```bash
+cp .claude/skills/trtc-eval/config.example.json .claude/skills/trtc-eval/config.json
+# 编辑 config.json，填入真实值
+```
+
+Required 字段（`trtc_test_account` 下）：
+
+- `sdk_app_id`（positive integer）
+- `user_id`（non-empty string）
+- `user_sig`（non-empty string；由业务后端签发）
+
+**回退链（per-field）**：config.json 每个字段非空时优先使用；字段为空 / 为 `replace-me` 占位符时，回落到同名 shell env vars（`TRTC_TEST_SDKAPPID` / `TRTC_TEST_USERID` / `TRTC_TEST_USERSIG`）——方便 CI 用 secret injection 而不落盘。
+
+三源都无时 `selfcheck --phase=pre-run` 直接 fail，`creds_loadable` 错误会指向 `config.example.json`。
+
+**其他环境变量仍走 shell env**（未搬进 config）：`EVAL_DEVELOPMENT_TEAM`（iOS 真机签名）、`EVAL_DEVICE_POLICY`（模拟器 / 真机偏好）。等以后有明确痛点再收敛。
+
+---
+
 ## 1. 设计目标
 
 | 关注点 | 在本项目里如何体现 |
@@ -18,59 +41,63 @@
 
 ## 2. 项目架构（资源全景）
 
-trtc-eval 的物理资产**逻辑上由 skill 拥有**，但分布在仓库 3 个位置（保持现有调用习惯，避免大规模搬迁）：
+trtc-eval 的物理资产**全部收拢在 skill 目录下**，仅 `.claude/eval-runs/`（每次运行的产物）留在仓库根，与其它 skill 的 runtime 数据并列：
 
 ```
 trtc-ai-integration/
-├── .claude/skills/trtc-eval/        ← skill 主体（指令 + 文档 + prompt）
+├── .claude/skills/trtc-eval/        ← skill 全部源码 / 资产
 │   ├── SKILL.md                     #   主指令（触发条件、3 步执行流、铁律）
 │   ├── README.md                    #   本文件
+│   ├── config.json                  #   TRTC 测试凭据（gitignore）
+│   ├── config.example.json          #   配置示例
 │   ├── docs/
 │   │   ├── quality-self-check.md    #   三闸门说明
 │   │   └── troubleshooting.md       #   常见错误码与修复方法
-│   └── prompts/
-│       └── ai_driver_system_prompt.md   # AI CLI 评测模式系统提示词
+│   ├── prompts/
+│   │   └── ai_driver_system_prompt.md   # AI CLI 评测模式系统提示词
+│   ├── bootstrap.sh                 #   一次性环境初始化（pip install + clone templates）
+│   ├── scripts/                     #   评测引擎（生产代码，trace.jsonl 唯一写入方）
+│   │   ├── case_runner_orchestrator.py  #   ★ 唯一编排入口，串联 7 个步骤
+│   │   ├── run_ai.py                #   Step 1：调 CLI 拿代码 + 提取 fenced blocks
+│   │   ├── evaluator.py             #   Step 2：静态评分（must_include/must_not_include）
+│   │   ├── demo_runner.py           #   Step 3/5：build / run（注入代码 + 编译 + 启动）
+│   │   ├── log_streamer.py          #   Step 4/6：日志流 start / stop（独立进程）
+│   │   ├── runtime_monitor.py       #   Step 7：解析 runtime.log → 动态评分
+│   │   ├── selfcheck.py             #   质量自检（pre-run / post-run / cases-lint）
+│   │   ├── report.py                #   报告生成（build / diff）
+│   │   ├── stats_trigger.py         #   触发率统计（30d 窗口）
+│   │   ├── requirements.txt         #   pydantic + jsonschema
+│   │   ├── package.json             #   puppeteer 等评测专属 Node 依赖
+│   │   ├── log-bridge.mjs           #   web 日志桥（puppeteer 抓 console）
+│   │   └── lib/                     #   被脚本复用的库代码
+│   │       ├── eval_config.py       #     ★ skill_root() / repo_root() 路径锚点
+│   │       ├── schemas.py           #     Pydantic 数据契约（Case / *Result / Trace）
+│   │       ├── cli_driver.py        #     封装 `claude` / `codebuddy` CLI 调用
+│   │       ├── code_injector.py     #     按 demo_injection_map 把代码注入模板
+│   │       ├── builder.py           #     构建分发（dispatch 到平台 adapter）
+│   │       ├── launcher.py          #     启动分发（dispatch 到平台 adapter）
+│   │       ├── dep_installer.py     #     安装 AI 声明的依赖（pod / gradle / npm）
+│   │       ├── template_fetcher.py  #     从 templates/ 复制工程到 case workspace
+│   │       ├── device_picker.py     #     设备选择（kind/SDK/booted 三段排序）
+│   │       ├── web_profile.py       #     web 框架 profile 叠加
+│   │       ├── platforms/           #     iOS / Android / Web 平台 adapter
+│   │       └── log_parsers/         #     syslog / logcat / puppeteer 解析器
+│   ├── tests/
+│   │   ├── benchmark/
+│   │   │   ├── cases.json           #   ← 评测集（单一事实源）
+│   │   │   └── schema.json          #     cases.json 的 JSON Schema
+│   │   └── unit/                    #   开发期 pytest，不会被生产脚本 import
+│   │       ├── test_orchestrator.py
+│   │       ├── test_log_parsers.py
+│   │       └── fixtures/            #     parser 单测样本（生产代码禁止读取）
+│   ├── templates/                   #   bootstrap.sh 拉取的模板工程（gitignore）
+│   │   ├── ios-demo/
+│   │   ├── android-demo/
+│   │   └── web-demo/
+│   └── .cache/                      #   bootstrap.sh 的 sparse-checkout 缓存（gitignore）
+│       └── project_template/
 │
-├── bootstrap.sh                     ← 一次性环境初始化（pip install + clone templates）
-│
-├── scripts/                         ← 评测引擎（生产代码，trace.jsonl 唯一写入方）
-│   ├── case_runner_orchestrator.py  #   ★ 唯一编排入口，串联 7 个步骤
-│   ├── run_ai.py                    #   Step 1：调 CLI 拿代码 + 提取 fenced blocks
-│   ├── evaluator.py                 #   Step 2：静态评分（must_include/must_not_include）
-│   ├── demo_runner.py               #   Step 3/5：build / run（注入代码 + 编译 + 启动）
-│   ├── log_streamer.py              #   Step 4/6：日志流 start / stop（独立进程）
-│   ├── runtime_monitor.py           #   Step 7：解析 runtime.log → 动态评分
-│   ├── selfcheck.py                 #   质量自检（pre-run / post-run / cases-lint）
-│   ├── report.py                    #   报告生成（build / diff）
-│   ├── stats_trigger.py             #   触发率统计（30d 窗口）
-│   ├── requirements.txt             #   pydantic + jsonschema
-│   └── lib/                         #   被脚本复用的库代码
-│       ├── schemas.py               #     Pydantic 数据契约（Case / *Result / Trace）
-│       ├── cli_driver.py            #     封装 `claude` / `codebuddy` CLI 调用
-│       ├── code_injector.py         #     按 demo_injection_map 把代码注入模板
-│       ├── builder.py               #     构建分发（dispatch 到平台 adapter）
-│       ├── launcher.py              #     启动分发（dispatch 到平台 adapter）
-│       ├── dep_installer.py         #     安装 AI 声明的依赖（pod / gradle / npm）
-│       ├── template_fetcher.py      #     从 templates/ 复制工程到 case workspace
-│       ├── device_picker.py         #     设备选择（kind/SDK/booted 三段排序）
-│       ├── platforms/               #     iOS / Android / Web 平台 adapter
-│       └── log_parsers/             #     syslog / logcat / puppeteer 解析器
-│
-├── tests/
-│   ├── benchmark/
-│   │   ├── cases.json               ← 评测集（单一事实源，6 处脚本读它）
-│   │   └── schema.json              #   cases.json 的 JSON Schema
-│   └── unit/                        #   仅开发期 pytest，不会被生产脚本 import
-│       ├── test_orchestrator.py
-│       ├── test_log_parsers.py
-│       └── fixtures/                #   parser 单测样本（生产代码禁止读取）
-│
-├── templates/                       ← bootstrap.sh 拉取的模板工程（产物，gitignore）
-│   ├── ios-demo/
-│   ├── android-demo/
-│   └── web-demo/
-│
-└── .claude/eval-runs/{ts}/       ← 每次 run 的产物根目录（gitignore）
+└── .claude/eval-runs/{ts}/          ← 每次 run 的产物根目录（gitignore，留在仓库根）
     ├── run.manifest.json            #   主 Agent 写：本次 run 选了哪些 case
     ├── selfcheck.json               #   selfcheck.py 写
     ├── scoreboard.csv               #   report.py 写
@@ -89,6 +116,14 @@ trtc-ai-integration/
         ├── dynamic_result.json      #   runtime_monitor.py 写
         └── summary.json             #   ★ orchestrator 写：主 Agent 唯一应该读的文件
 ```
+
+### 路径锚点（重要）
+
+所有脚本通过 `scripts/lib/eval_config.py` 的 `skill_root()` / `repo_root()` 解析数据路径，**不依赖 cwd**。这意味着：
+
+- `cases.json` / `templates/` / `prompts/` 等都通过 `skill_root() / "..."` 拼接绝对路径
+- `.claude/eval-runs/` 通过 `repo_root() / ".claude" / "eval-runs"` 拼接，永远落在仓库根
+- 你可以从任意目录调脚本，但建议在 skill 目录下执行（`bootstrap.sh` 也会 cd 到自己所在目录）
 
 ### 三层关系图
 
@@ -315,26 +350,28 @@ passed = (static.score >= acceptance.static_score_min)
 
 ## 5. 主 Agent 调用契约
 
-主 Agent 在执行评测时**只允许**做下面这些事：
+主 Agent 在执行评测时**只允许**做下面这些事（先 `cd .claude/skills/trtc-eval/`）：
 
 ```bash
+cd .claude/skills/trtc-eval
+
 # Step 1
 python scripts/selfcheck.py --phase=pre-run
-cat tests/benchmark/cases.json                    # 读 case 元数据
-mkdir -p .claude/eval-runs/{ts}                # 创建 run dir
-echo '{...}' > .claude/eval-runs/{ts}/run.manifest.json
+cat tests/benchmark/cases.json                     # 读 case 元数据
+mkdir -p ../../../.claude/eval-runs/{ts}           # 创建 run dir（落在仓库根）
+echo '{...}' > ../../../.claude/eval-runs/{ts}/run.manifest.json
 
 # Step 2（每个 case 一次）
 python scripts/case_runner_orchestrator.py \
   --case-id=TC-LIVE-IOS-006 \
-  --run-dir=.claude/eval-runs/{ts}
+  --run-dir=../../../.claude/eval-runs/{ts}
 # orchestrator 的 stdout 只有一行 JSON：{"test_id":...,"exit_code":...,"summary_path":...}
-cat .claude/eval-runs/{ts}/cases/TC-LIVE-IOS-006/summary.json
+cat ../../../.claude/eval-runs/{ts}/cases/TC-LIVE-IOS-006/summary.json
 
 # Step 3
-python scripts/report.py build --run-dir=.claude/eval-runs/{ts}
-python scripts/selfcheck.py --phase=post-run --run-dir=.claude/eval-runs/{ts}
-cat .claude/eval-runs/{ts}/report.md
+python scripts/report.py build --run-dir=../../../.claude/eval-runs/{ts}
+python scripts/selfcheck.py --phase=post-run --run-dir=../../../.claude/eval-runs/{ts}
+cat ../../../.claude/eval-runs/{ts}/report.md
 ```
 
 **禁止**主 Agent 做的事（写在 SKILL.md 铁律里）：
@@ -364,6 +401,8 @@ cat .claude/eval-runs/{ts}/report.md
 ## 7. 一次性初始化
 
 ```bash
+cd .claude/skills/trtc-eval
+
 # 安装依赖 + 拉取模板工程到 templates/
 ./bootstrap.sh
 
@@ -371,13 +410,13 @@ cat .claude/eval-runs/{ts}/report.md
 ./bootstrap.sh --verify
 ```
 
-`bootstrap.sh` 做了 5 件事：
+`bootstrap.sh` 会先 `cd` 到自己所在的 skill 目录，然后做 5 件事：
 
 1. 校验 Python 3.10+ 并 `pip install -r scripts/requirements.txt`
 2. 检查 `rg`（必需）/ `xcodebuild` / `adb` / `node`（按平台需要）
-3. 用 sparse-checkout 从 `Hanpto/project_template` 拉 `ios/MyApplication`、`android/MyApplication`、`web/MyApplication` 到 `templates/{platform}-demo/`
+3. 用 sparse-checkout 从 `Hanpto/project_template` 拉 `ios/MyApplication`、`android/MyApplication`、`web/MyApplication` 到 `templates/{platform}-demo/`（缓存写到 `.cache/project_template/`）
 4. 把 `INJECTION.json` 里的 `pinned_commit` 写成具体 SHA（审计用）
-5. （`--verify`）跑一次 `selfcheck pre-run`
+5. 在仓库根创建 `.claude/eval-runs/`（产物目录），并视情况跑 `selfcheck pre-run`
 
 > 模板缺失时 orchestrator 会 fallback 自动调一次 `bootstrap.sh`（见 `_ensure_templates`），但不建议依赖这条路径——首次使用务必手动跑。
 

@@ -13,12 +13,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.lib import template_fetcher, code_injector, builder, device_picker, launcher, dep_installer
+from scripts.lib.eval_config import skill_root
 from scripts.lib.platforms import get_adapter
 from scripts.lib.schemas import Case
 
 
 def _load_case(case_id: str) -> Case:
-    cases = json.loads(Path("tests/benchmark/cases.json").read_text())
+    cases = json.loads((skill_root() / "tests" / "benchmark" / "cases.json").read_text())
     raw = next((c for c in cases if c["test_id"] == case_id), None)
     if raw is None:
         raise ValueError(f"case-id '{case_id}' not found")
@@ -43,12 +44,41 @@ def main() -> int:
     adapter = get_adapter(case.platform)
 
     if args.phase == "build":
-        template_fetcher.copy_template(case.platform, case_dir, Path("templates"))
+        template_fetcher.copy_template(case.platform, case_dir, skill_root() / "templates")
+
+        # Web: apply framework profile BEFORE injection so main.ts / vite.config
+        # reflect the target framework, and so `npm ci` picks up vue/react deps.
+        framework: str | None = None
+        if case.platform == "web":
+            from scripts.lib import web_profile
+            framework = case.framework or web_profile.detect_web_framework(
+                case_dir / "ai_extracted_code"
+            )
+            web_profile.apply_web_profile(workspace, framework)
+            meta = workspace / ".eval-meta"
+            meta.mkdir(exist_ok=True)
+            (meta / "framework.txt").write_text(framework)
+
+        # Merge case.extra_dependencies into dependencies.json (if any). This
+        # lets a case pull in SDK packages that the AI prompt has not yet been
+        # updated to declare itself.
+        if case.extra_dependencies:
+            dep_path = case_dir / "dependencies.json"
+            cur = json.loads(dep_path.read_text()) if dep_path.exists() else {}
+            for k, lst in case.extra_dependencies.items():
+                cur.setdefault(k, [])
+                for item in lst:
+                    if item not in cur[k]:
+                        cur[k].append(item)
+            dep_path.write_text(json.dumps(cur, indent=2, ensure_ascii=False))
+
         code_injector.inject(
             workspace=workspace,
             ai_code_dir=case_dir / "ai_extracted_code",
             injection_map=case.demo_injection_map,
             platform=case.platform,
+            framework=framework,
+            case_dir=case_dir,
         )
         # Install dependencies declared by AI (e.g., CocoaPods)
         dep_file = case_dir / "dependencies.json"

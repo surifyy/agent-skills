@@ -85,6 +85,14 @@ class Case(BaseModel):
     auto_run_flow: list[str] = Field(default_factory=list)
     tags: list[str]
     status: Literal["active", "draft"]
+    # Web-only: which framework profile to apply. If None, demo_runner falls
+    # back to web_profile.detect_web_framework(ai_extracted_code). Ignored for
+    # ios / android / flutter.
+    framework: Literal["vanilla", "vue3", "vue2", "react"] | None = None
+    # Case-level dependency hints merged into <case_dir>/dependencies.json
+    # before dep_installer runs. Exists so a case can require e.g.
+    # ``tuikit-atomicx-vue3`` without forcing the AI prompt to emit it.
+    extra_dependencies: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class StaticResult(BaseModel):

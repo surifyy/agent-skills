@@ -21,12 +21,14 @@ Every case must produce:
 
 ## Running Self-Check
 
+All commands run from the skill directory (`cd .claude/skills/trtc-eval/`):
+
 ```bash
 # Before eval
 python scripts/selfcheck.py --phase=pre-run
 
-# After eval
-python scripts/selfcheck.py --phase=post-run --run-dir=.codebuddy/eval-runs/{timestamp}
+# After eval (run-dir is the repo-root eval-runs directory)
+python scripts/selfcheck.py --phase=post-run --run-dir=../../../.claude/eval-runs/{timestamp}
 
 # Validate cases.json
 python scripts/selfcheck.py --phase=cases-lint
