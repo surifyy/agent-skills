@@ -1,0 +1,43 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/.claude/skills/trtc/room-builder/guardrails/trtc_prepare_ui.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PROJECT_DIR}/.claude/skills/trtc/room-builder/guardrails/verify_ui_post_write.sh"
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/.claude/skills/trtc/apply/guardrails/verify_slice_must_rules.py"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/.claude/skills/trtc/room-builder/guardrails/trtc_verify_ui.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/.claude/skills/trtc/apply/guardrails/verify_apply_project.py"
+          }
+        ]
+      }
+    ]
+  }
+}

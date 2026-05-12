@@ -1,13 +1,21 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python scripts/report.py build --run-dir=../../../.claude/eval-runs/refactor-smoke-2026-05-09T11-29-44Z)",
-      "Bash(python scripts/selfcheck.py --phase=post-run --run-dir=../../../.claude/eval-runs/refactor-smoke-2026-05-09T11-29-44Z)",
-      "Bash(python3 -c \" import json,sys d = json.loads\\(sys.stdin.read\\(\\).split\\('{', 1\\)[1].rsplit\\('{', 1\\)[0] if False else sys.stdin.read\\(\\)\\) \")",
-      "Bash(python3 -c ' *)",
-      "Bash(python scripts/selfcheck.py --phase=pre-run)",
       "Bash(python *)",
-      "Bash(codebuddy --version)"
+      "Bash(python3 *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(npx webpack *)",
+      "Bash(pip3 install *)",
+      "Bash(chmod +x *)",
+      "Bash(grep -v \"\\\\.svg$\")",
+      "Bash(grep -v \"\\\\.png$\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(grep *)",
+      "Bash(lsof -ti:8080)",
+      "Bash(xargs kill *)",
+      "Bash(lsof -i:8080)",
+      "Bash(awk -F: '{print $2}')"
     ]
   }
 }

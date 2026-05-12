@@ -15,6 +15,7 @@
 
 /* 1. 令牌 */
 @import "tokens.css";
+@import "tokens.dark.css";
 
 /* 2. 页面骨架 */
 @import "layout.css";

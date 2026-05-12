@@ -28,6 +28,12 @@ api_docs:
 - 用户点击“关闭麦克风”时，调用 `muteMicrophone()` 停止音频上行。
 - 只有在离房、结束会议或明确要释放设备时，再调用 `closeLocalMicrophone()`。
 
+这里要特别区分：**麦克风需要把“是否采集”和“是否上行”拆开处理，但摄像头通常不需要照搬这套模型。**
+- 摄像头在大多数会议产品里，直接用 `openLocalCamera()` / `closeLocalCamera()` 控制开启与关闭即可。
+- 如果业务要求“入会默认不开摄”，应明确调用 `closeLocalCamera()` 收口摄像头关闭状态；当用户点击开摄时再调用 `openLocalCamera()`。
+- 如果用户点击关摄，直接调用 `closeLocalCamera()` 释放本地摄像头采集即可，不需要类比成 `muteMicrophone()` / `unmuteMicrophone()` 这类“保留采集但停止上行”的用法。
+- 只有在客户明确要求“摄像头预热但默认不展示 / 不上屏”这类特殊策略时，才需要单独评估是否做更复杂的摄像头状态编排；默认文档口径不要把摄像头推断成和麦克风同一套控制链路。
+
 这样设计有两个直接收益：
 - 用户开麦时无需重新处理物理设备采集，响应速度更快。
 - 业务层可以持续结合 `currentMicVolume` 检测闭麦说话，并在合适时提示“您正在说话，是否打开麦克风？”。
@@ -162,8 +168,8 @@ export function shouldPromptSpeakingWhileMuted() {
    **Verify**: 检查是否存在 `useDeviceState()`。
 2. **在切换设备前先获取设备列表或当前状态** — 否则 UI 容易对不存在的设备执行切换。  
    **Verify**: 检查是否存在 `getCameraList()` / `getMicrophoneList()` / 状态读取逻辑。
-3. **会议场景下把“麦克风采集”与“音频上行”拆开处理** — 推荐进房后先 `muteMicrophone()`，再 `openLocalMicrophone()`；后续通过 `unmuteMicrophone()` / `muteMicrophone()` 响应开麦与闭麦。  
-   **Verify**: 检查会议工具栏或入会初始化逻辑中是否存在这条调用链。
+3. **会议场景下把“麦克风采集”与“音频上行”拆开处理，但不要把这套规则直接套到摄像头上** — 推荐进房后先 `muteMicrophone()`，再 `openLocalMicrophone()`；后续通过 `unmuteMicrophone()` / `muteMicrophone()` 响应开麦与闭麦。摄像头统一按 `openLocalCamera()` / `closeLocalCamera()` 直接控制开关。  
+   **Verify**: 检查会议工具栏或入会初始化逻辑中，麦克风是否存在上述调用链，同时摄像头是否统一使用 `openLocalCamera()` / `closeLocalCamera()` 控制。
 
 #### MUST NOT（生成时绝不能出现）
 

@@ -45,13 +45,21 @@ Persist the full current state back to `.trtc-session.yaml` at these moments onl
 
 | Checkpoint | What changes |
 |-----------|--------------|
-| Stage 1 calibration confirmed (user approved the recap) | Create file; set `status: active`, fill all inferred fields |
+| Stage 0 inference complete | Create file silently; set `status: active`, fill all inferred fields. Do NOT wait for user confirmation — write immediately after inference. |
 | A2-Q3 step passes apply | Advance `current_step`; append slice to `completed_steps` |
 | User says "pause / 先到这里 / 明天再来" | Set `status: paused` |
 | A2-Q4 "I'm good for now" | Set `status: completed` |
 | User says "start over / 重新开始" | Overwrite file with fresh `status: active`, clear progress fields |
 
 **Sensitive values**: credentials (SDKAppID / SecretKey) are NEVER written to disk. Only booleans `credentials.sdk_app_id_provided` and `credentials.secret_key_provided` are persisted. The actual values live only in the conversation context.
+
+**Silence rule for Write (CRITICAL)**: a "silent" Write means the user must NOT see any chat-side output announcing it. The ONLY allowed user-visible output tied to a session-file Write is the one-sentence `.gitignore` notice described below — and only on the first Write that actually appended the line. All of the following are FORBIDDEN as user-visible output around a session-file Write:
+
+- "I created `.trtc-session.yaml` / Session state saved / 已保存会话状态 / 已写入 session 文件" — any phrasing that announces the file write itself.
+- Echoing back the inferred fields ("Product: Conference, Platform: Web, Intent: …") *as confirmation that they were written*. Inferred fields belong in the Stage-1 recap (a separate, conversational artifact), not here.
+- Diffs, paths, or file-tool result summaries surfaced to the user.
+
+If the Write tool surfaces output by itself, suppress / don't reference it in your reply. The mental model is "the file appeared; nothing was said." Stage-1 recap may then still happen — those are different turns and a different artifact.
 
 **First Write — `.gitignore` handling**: on the first Write, also check whether `.gitignore` exists in the project root. If it exists and does not already contain `.trtc-session.yaml`, append that line. Tell the user in one sentence: "I've added `.trtc-session.yaml` to `.gitignore` so the session won't be committed." (Translate to user's language.) If no `.gitignore` exists, do not create one — just proceed.
 
@@ -192,7 +200,7 @@ Before asking anything, silently extract what you can from the user's first mess
 |----------------|-------|
 | `Podfile`, `*.xcodeproj` | `platform = ios` |
 | `build.gradle`, `settings.gradle` | `platform = android` |
-| `package.json` with `@tencentcloud/chat` / `trtc-js-sdk` / `@tencentcloud/tuiroom-engine-js` | `platform = web`, `project_state.has_trtc_dep = true` |
+| `package.json` with `@tencentcloud/chat` / `trtc-js-sdk` / `tuikit-atomicx-vue3` | `platform = web`, `project_state.has_trtc_dep = true` |
 | `pubspec.yaml` with `tencent_cloud_*` | `platform = flutter` |
 | Grep for `LoginStore`, `V2TIMManager.getInstance().login` | `project_state.has_login = true` |
 | Grep for `BarrageStore` / `GiftStore` / `CoGuestStore` / `DeviceStore` / `LiveCoreView` | populate `project_state.existing_features` |

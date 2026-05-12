@@ -41,6 +41,27 @@ If a scenario matches, read its file: `knowledge-base/{scenario.file}`. This con
 
 If no scenario matches exactly, compose an ad-hoc sequence from relevant slices. Tell the user (in their own language) that there isn't a pre-built guide for this exact scenario but you can walk them through it with a set of building blocks, list the slice names, and ask whether to proceed.
 
+### Step 1.5: Present scenario capabilities (and pick coverage if applicable)
+
+**MANDATORY before any code is written** (including before any Step 3.5 `ui_mode` work). This step runs even when onboarding handed off a concrete scenario — the Step 1 skip applies only to *scenario matching*, not to capability presentation.
+
+Each scenario file declares its own format. Open `knowledge-base/{scenario.file}` and follow its **「能力展示」** (form A) or **「能力展示与 coverage 选择」** (form B) section verbatim. See `knowledge-base/scenario-spec.md` for the two forms.
+
+- **Form A (single complete capability set)**: render the file's "展示文案" to the user, then proceed to Step 2. Do NOT ask the user any coverage question — every slice in the scenario will be implemented.
+- **Form B (主链路 + 可选增强)**: render the file's "展示文案", then use `AskUserQuestion` per the file's "AskUserQuestion 选项" table. Persist the user's pick to `.trtc-session.yaml`:
+  ```yaml
+  session_context:
+    enhancement_level: minimal | complete   # minimal = P0 only; complete = P0 + P1
+  ```
+
+If the scenario file does not provide either section, fall back to: list every entry in its `index.yaml` `slices` array as one tier, ask "继续？" (yes/no), and treat it as form A with all slices included. Then file an issue against the scenario authoring spec.
+
+**Skip Step 1.5 only if** the user explicitly said "完整版 / give me everything / all features" in their initial request — set `enhancement_level: complete` silently and continue. Do **not** skip just because onboarding handed off a scenario id; onboarding does not own this question.
+
+`enhancement_level` is the contract for downstream steps — see Step 3 and Step 3.5. Form A scenarios may treat the field as `complete` by default since there is no "minimal" subset.
+
+
+
 ### Step 2: Check prerequisites
 
 Present the scenario's prerequisites to the user. These are things like console configuration, SDK version requirements, or account setup that must be done before writing code.
@@ -49,7 +70,14 @@ Ask the user to confirm they're ready before diving into implementation. This pr
 
 ### Step 3: Walk through each step
 
-For each step in the scenario:
+**Slice sequence depends on the scenario's form (see Step 1.5):**
+
+- **Form A scenarios**: walk every slice the scenario file lists (in document order).
+- **Form B scenarios**: walk slices filtered by `session_context.enhancement_level` — `minimal` = P0 only, `complete` = P0 + P1.
+
+If `enhancement_level` is unset on a Form B scenario, you skipped Step 1.5 illegally. STOP and run Step 1.5 first. Silent skipping is forbidden.
+
+For each step in the (filtered) scenario sequence:
 
 1. **Explain what this step does and why** — one or two sentences of context
 2. **Load the relevant slice**:
@@ -66,20 +94,35 @@ For each step in the scenario:
    - **G5: Compilable by default** — Generated code must be compilable when added to a project with the correct SDK installed. Include all necessary imports, type declarations, and protocol conformances. If something can't compile without additional context, note it with a `// TODO:` comment explaining what's needed.
 
 4. **Highlight the gotchas** — surface the ALWAYS/NEVER rules that apply to this step. Frame them as "the common mistakes I've seen" rather than abstract rules.
-5. **Auto-advance or pause** — follow the **Step 3 progression rules** below to decide whether to immediately continue to the next step or pause for user input.
+5. **Pause and confirm** — after presenting code and completing the Apply Evidence Block, ALWAYS pause and wait for user confirmation before proceeding to the next step. See **Step 3 progression rules** below.
 
 ### Step 3 progression rules
 
-After each step's apply check completes, use the following rules to decide whether to auto-advance or pause:
+**ALWAYS pause after each step.** Every step follows the same rhythm:
+
+1. Generate code for the current slice
+2. Execute Apply Evidence Block (see below)
+3. Present results to the user
+4. **STOP and wait for user input** — do NOT proceed to the next step
 
 | apply result | Action |
 |---|---|
-| `pass` | **Auto-advance.** Do NOT pause or ask the user. Immediately proceed to the next slice in the scenario sequence. Output the step's **Apply Evidence Block** (see below) and continue generating the next step's code in the same response. |
-| `partial` (only `warning`/`info` severity) | **Auto-advance with note.** Same as `pass`, but append warnings after the evidence block. Continue to the next step. |
-| `partial` (any `critical` severity) | **Pause.** Show the critical warnings and ask the user how to proceed (fix / skip / pause). |
-| `fail` | **Pause.** Follow the retry rules in "Calling apply". If retry also fails (give-up), pause and inform the user. |
+| `pass` | Show the Evidence Block, then ask the user to confirm before continuing to the next step. |
+| `partial` (only `warning`/`info` severity) | Show the Evidence Block with warnings noted, then ask the user to confirm. |
+| `partial` (any `critical` severity) | Show the critical warnings and ask the user how to proceed (fix / skip / pause). |
+| `fail` | Follow the retry rules in "Calling apply". If retry also fails (give-up), pause and inform the user. |
 
-**Apply Evidence Block (MANDATORY for every step — no exceptions, even with auto-advance):**
+**Why no auto-advance:** Auto-advance removes the external gate that ensures apply is actually executed. When the AI knows it must present results to the user at each step, it cannot skip apply — the user would immediately see the absence of evidence. This per-step pause IS the enforcement mechanism for apply.
+
+**After presenting the Evidence Block, end the response with:**
+
+```
+继续下一步 {next_slice_name}？
+```
+
+Only proceed when the user confirms (e.g., "继续", "下一步", "好", "continue", "yes").
+
+**Apply Evidence Block (MANDATORY for every step — no exceptions):**
 
 Every step that passes apply MUST include the following visible block in the response. This is NOT optional. A step without this block is NOT completed, regardless of what the AI claims.
 
@@ -111,11 +154,7 @@ Every step that passes apply MUST include the following visible block in the res
 
 **Why this matters:** The Apply Evidence Block is the only proof that verification actually happened. Without executed commands and real output, "apply pass" is meaningless text. The user cannot distinguish real verification from hallucinated verification unless they see actual command → output pairs.
 
-**Batch output for consecutive passes:** When multiple steps pass in sequence, each step still outputs its own Apply Evidence Block. They may appear consecutively in one response, but none may be omitted.
-
-**Completion summary:** After all steps have auto-advanced through `pass`, present a single final summary table showing all steps, their apply status, and the overall compile result. This replaces the per-step "What would you like to do next?" menu.
-
-**Override:** If the user explicitly asks to go step-by-step ("一步一步来", "pause between steps", "let me review each step"), respect that preference and pause after each `pass`. Otherwise, auto-advance is the default.
+**Per-step output discipline:** Each step is ONE response. Do NOT generate code for multiple slices in a single response. If you find yourself writing code that belongs to the next slice, STOP — you are violating the per-step rule.
 
 ### Step 3.5: Apply `ui_mode` to code generation
 
@@ -124,99 +163,123 @@ strategy branches. Read this state ONCE at skill entry and cache it for the
 whole session. This section applies to **any product** that has a reference HTML
 and composable-bindings mapping — it is not limited to Conference.
 
-**At skill entry, if `ui_mode = full-ui`, load these three files as spec input:**
+**At skill entry, if `ui_mode = full-ui`, load these spec files:**
 
-1. `.claude/skills/trtc/room-builder/references/scenario-mapping.md` — maps the
-   current scenario to a scene and a reference HTML file
-2. `.claude/skills/trtc/room-builder/references/composable-bindings.md` — maps
+1. `.claude/skills/trtc/room-builder/references/region-manifest.yaml` — registry
+   of which scenarios have region fragment files available
+2. `.claude/skills/trtc/room-builder/references/scenario-mapping.md` — maps the
+   current scenario to a theme and base reference
+3. `.claude/skills/trtc/room-builder/references/composable-bindings.md` — maps
    UIKit class names to composables and reactive Vue bindings
-3. The reference HTML file named in scenario-mapping.md — used as visual spec
-   (structure, class names, slot layout)
 
-**If any of these files does not exist or has no entry for the current product/scenario:** degrade to `ui_mode = null` behavior for this run and warn the user (in their language): "I don't have a UI template for this scenario yet — I'll generate business code and you can apply your own UI layer."
+**Region resolution protocol:**
+
+Look up the current scenario in `region-manifest.yaml`. If a theme entry exists
+with `regions[]` for the target scenario:
+- Each child component's visual spec comes from the **individual region file**
+  at `room-builder/references/{base_path}/{file}` — NOT the full index.html.
+- When generating `TopBar.vue`, Read ONLY `regions/meeting-classic/topbar.html`.
+- When generating `BottomBar.vue`, Read ONLY `regions/meeting-classic/bottombar.html`.
+- And so on for each component listed in the manifest.
+
+**If region-manifest.yaml has no entry for the current scenario/theme:** degrade
+to `ui_mode = null` behavior for this run and warn the user (in their language):
+"I don't have a UI template for this scenario yet — I'll generate business code
+and you can apply your own UI layer."
+
+**If a theme entry exists but a specific component has no region file:** generate
+that component from composable-bindings.md + slice knowledge only (no visual
+spec). Other components with region files still follow paste-then-bind.
 
 **Pre-generation: UI-region-to-slice binding audit (MANDATORY for `full-ui`)**
 
-Before writing any code, perform this binding audit:
+Read the scenario file's **「UI 区域 / Slice 映射」** table (see `scenario-spec.md` §3.4). That table — authored per scenario — is the contract for which UI regions get wired vs hidden.
 
-1. **Enumerate UI regions** in the reference HTML: for each major structural
-   section (stage, toolbar, side-panel content areas, chat, participant list,
-   etc.), record its root class name.
-2. **Cross-reference against the scenario's slice list**: for each UI region,
-   check whether a corresponding slice exists in the scenario's `slices` array
-   (read from `knowledge-base/{scenario.file}`). A "corresponding slice" is one
-   whose capability domain maps to that UI region (e.g. `{product}/room-chat`
-   covers `.ui-chat-list` and `.ui-chat-input`).
-3. **Binding decision per region:**
+For each row in the table:
 
-   | Scenario slice present? | composable-bindings.md entry? | Action |
-   |---|---|---|
-   | Yes | Yes | **MUST fully implement** — wire composables per bindings.md; stub placeholder is NOT acceptable |
-   | Yes | No | **Block — update composable-bindings.md first**, then implement |
-   | No | — | Omit UI region entirely (do not produce a non-functional placeholder) |
+- **Form A scenario** (single column "对应 slice"): wire the slice per `composable-bindings.md`. If the slice has no composable-bindings entry, **block** — update `composable-bindings.md` first, then implement. Do not stub.
+- **Form B scenario** (two columns "minimal" / "complete"): pick the column matching `session_context.enhancement_level`. The cell tells you literally what to do:
+  - "显示" → wire the slice per `composable-bindings.md` (block on missing entry, same as form A).
+  - "隐藏" → remove the element from `<template>`, OR keep with `v-if="false"` plus a comment naming the unselected slice. Do NOT render an inert button — that produces the "click does nothing" bug.
 
-4. **Record the audit result** as an inline comment at the top of the generated
-   SFC, listing which slices were bound and which regions were omitted.
+If the scenario file has no UI mapping table but the scenario is in `scenario-mapping.md` (i.e. has reference HTML), block and tell the user the scenario authoring is incomplete; do NOT improvise the mapping yourself. The mapping table is per-scenario judgement, not topic's.
 
-This audit is the fix for the class of bug where a UI region from the reference
-HTML (e.g. the chat panel) is present in the visual spec but left as a stub
-because no composable mapping was found. If the audit finds a missing binding,
-update `composable-bindings.md` before proceeding — do not silently omit or stub.
+Record the audit result as an inline comment at the top of the generated SFC, listing which slices were bound and which regions were hidden.
 
 **Generation rules by mode:**
 
 | `ui_mode` | Output shape | Strategy |
 |---|---|---|
-| `full-ui` | Vue SFC (template + script + style) | Run the UI-region-to-slice binding audit above first. Then mirror the reference HTML structure in `<template>`. Class names MUST come from the reference HTML or `uikit/references/component-catalog.md` — do NOT invent new class names. Replace static state classes (`.is-off`, `.is-open`) with reactive `:class` bindings per composable-bindings.md. Wire buttons with `@click` and lists with `v-for` against the mapped composables. In `<style>`, import the theme tokens and component CSS from the path specified in scenario-mapping.md. |
+| `full-ui` | Vue SFC (template + script + style) | Run the UI-region-to-slice binding audit above first. Then for each child component: (1) resolve its region file from `region-manifest.yaml`, (2) execute paste-then-bind (Step 1: paste region HTML verbatim, Step 2: add Vue bindings per composable-bindings.md). Class names MUST come from the region HTML or `uikit/references/component-catalog.md` — do NOT invent new class names. In `<style>`, import the theme tokens and component CSS from the path specified in scenario-mapping.md. Scoped CSS should be minimal — only for Vue-specific adjustments not covered by the theme. |
 | `headless` | Composables + stores + types + README | Generate `src/trtc/composables/*.ts`, `src/trtc/types/index.ts`, and a top-level `README.md`. Do NOT generate any `.vue` files. Do NOT generate example components. The README documents each composable's return signature with a 3-line usage snippet. |
 | `null` or unset | Topic's default strategy | Fall back to the per-slice code-example approach (pre-ui_mode behavior). Unchanged. |
 
-**Full-UI self-check (MANDATORY — run before writing any `.vue` file when `ui_mode = full-ui`):**
+**What "mirror" means concretely — the Paste-then-bind protocol:**
 
-**⚠️ EXECUTION PROTOCOL — this is NOT a mental check, it is a mandatory output step:**
+When a region HTML fragment is available for the target component, generation
+MUST follow this two-step process. Skipping Step 1 is a violation.
 
-1. **Before calling Write/Edit on any `.vue` file**, you MUST first output a **UI Audit Table** in your response. This table is visible to the user and serves as proof that the check was executed.
-2. The table compares each region of your generated code against the reference HTML.
-3. **If all rows pass** → proceed to Write the file immediately (no user confirmation needed).
-4. **If any row fails** → STOP. Do NOT write the file. Discard the draft, re-read the reference HTML, and regenerate. Then output a new audit table.
+**Step 1 — Paste (structural fidelity):**
+Copy the region fragment's DOM structure into `<template>` verbatim. Keep ALL:
+- Class names (every `ui-*` and `mc-*` class)
+- Nesting depth and parent-child relationships
+- `data-*` attributes
+- Comments (converted to `<!-- -->` in Vue template)
+- SVG icon markup (inline SVGs stay inline)
 
-**UI Audit Table format (must appear in your response before any Write call):**
+At the end of Step 1, the template is valid static HTML that matches the
+region file 1:1. No Vue syntax yet.
 
-```
-## UI Audit — {filename}
-| Region | Reference HTML class | Generated class | Status |
-|--------|---------------------|-----------------|--------|
-| Top bar | .ui-topbar | .ui-topbar | ✅ |
-| Stage | .ui-stage | .ui-stage | ✅ |
-| Bottom bar | .ui-bottombar | .ui-bottombar | ✅ |
-| Side panel | .ui-side-panel | .ui-side-panel | ✅ |
-| ... | ... | ... | ... |
+**Step 2 — Bind (reactive wiring):**
+Walk through the pasted template line by line and apply these replacements:
+- Hardcoded text → `{{ composableRef.value }}` or `{{ computed }}`
+- Static participant/message lists → `v-for` with `:key`
+- Static state classes (`.is-off`, `.is-open`, `.is-active`) → `:class="{ 'is-off': reactiveCondition }"`
+- `data-action` buttons → `@click="composableMethod()"`
+- Hardcoded avatar URLs → `:style="{ backgroundImage: ... }"`
+- Static counts → `{{ participantList.length }}`
 
-Style imports: ✅ tokens.css + layout.css + component CSS
-State classes reactive: ✅ all .is-* use :class bindings
-```
+**Step 2 constraints:**
+- Do NOT delete any DOM node that was in Step 1
+- Do NOT delete any class that was in Step 1
+- Do NOT change nesting depth
+- Do NOT merge or split elements
+- Do NOT replace `<img>` SVG icons with other icon representations
+- The only additions are Vue directives (`:`, `@`, `v-for`, `v-if`)
 
-**Audit checks:**
+**If paste-then-bind is not possible** (region file doesn't exist for this
+component): generate freely from composable-bindings.md + slice knowledge.
+Mark the component with a comment: `<!-- No region spec — generated from composable knowledge -->`.
 
-| # | Check | Fail condition |
-|---|---|---|
-| U1 | Template structure mirrors reference HTML regions | Generated `<template>` does NOT contain the same top-level structural sections as the reference HTML (check by comparing top-level class names in both) |
-| U2 | Class names come from reference HTML / component-catalog | Any class in `<template>` that is NOT present in the reference HTML or `component-catalog.md` — i.e. you invented a new class name |
-| U3 | `<style>` imports theme tokens + component CSS | No `@import` or equivalent link to the theme CSS path specified in scenario-mapping.md |
-| U4 | State classes are reactive | Any `.is-off`, `.is-open`, `.is-active` appears as a static class instead of `:class` binding |
-| U5 | No invented structural markup | Core layout is achieved through custom HTML/CSS instead of reusing reference HTML structure |
-
-**Why this works as a hard gate:** The audit table is a visible artifact in the response. If you skip it, the absence is obvious — both to the user and to yourself on re-read. It forces you to actually compare class names before writing, rather than relying on a "mental note" that gets bypassed under generation pressure.
-
-**What "mirror" means concretely:**
-- Copy the reference HTML's DOM hierarchy for each region (topbar, stage, bottombar, side-panel).
-- Keep the original class names, slot structure, and nesting depth.
-- Replace hardcoded data (names, avatars, messages) with `v-for` / `{{ }}` bindings.
-- Replace static state classes with `:class` bindings per composable-bindings.md.
-- Add `@click` handlers per composable-bindings.md.
 - Do NOT restructure the HTML to "look simpler" or "be more readable" — the reference HTML IS the spec.
 
-**If the reference HTML is too large for a single SFC:** split into multiple child components by region (e.g. `TopBar.vue`, `BottomBar.vue`, `SidePanel.vue`), but each child component still mirrors the corresponding section of the reference HTML with original class names intact.
+**Component splitting uses region files directly:**
+
+When `region-manifest.yaml` lists multiple region entries for the scenario's
+theme, split into one child component per region. Each child component:
+1. Reads ONLY its own region fragment file (e.g. `topbar.html` for `TopBar.vue`)
+2. Applies paste-then-bind on that fragment
+3. Never reads other regions or the full index.html
+
+This ensures each component generation stays within a focused context window
+(typically 45–176 lines of HTML), maximizing structural fidelity.
+
+**Child component composable rule (MANDATORY when splitting into multiple SFCs):**
+
+When splitting into child components, each child MUST directly import and call the SDK composables it needs — do NOT relay SDK state through props/emit chains. Vue 3 composables (`useDeviceState`, `useRoomState`, `useRoomParticipantState`, `useMessageListState`, etc.) are singleton instances: calling them in any component returns the same shared reactive state. Therefore:
+
+- `BottomBar.vue` MUST directly call `useDeviceState()` to get `cameraStatus`, `openLocalCamera`, `closeLocalCamera`, `muteMicrophone`, `unmuteMicrophone`, `startScreenShare`, `stopScreenShare` — do NOT accept these as props from the parent.
+- `SidePanel.vue` MUST directly call `useRoomParticipantState()` for `participantList` and `useMessageListState()` / `useMessageInputState()` for chat — do NOT accept `participants` or `messages` as props.
+- `TopBar.vue` MUST directly call `useDeviceState()` for `networkInfo` and `useRoomState()` for `currentRoom` — do NOT accept network/room data as props.
+- The parent (`MeetingRoom.vue`) only handles: room lifecycle (`createAndJoinRoom` / `leaveRoom` / `endRoom`), login events, and UI layout state (which panel is open).
+
+**Why this rule exists:** Props-based relay creates type mismatches (SDK types vs custom interfaces), duplicate state sources (local ref vs SDK ref), and broken data flow (e.g., chat input in child not synced with SDK's `inputRawValue`). Direct composable usage eliminates all three problems.
+
+**MUST NOT when splitting:**
+- Do NOT define custom TypeScript interfaces (`Participant`, `ChatMessage`) that duplicate SDK types
+- Do NOT use local `ref()` for state that the SDK already provides reactively
+- Do NOT emit events for actions that can be called directly via composable (e.g., `emit('toggle-mic')` when the child can just call `muteMicrophone()` itself)
+- Do NOT pass `messageList` / `participantList` as props — they are already globally available via composables
 
 **Apply gate — MANDATORY for `full-ui` (same weight as G3, not optional):**
 
