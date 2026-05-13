@@ -189,9 +189,9 @@ Before asking anything, silently extract what you can from the user's first mess
 |---|---|---|
 | 远程医疗 / 在线问诊 / 医患沟通 / telemedicine / remote consultation | `conference` | `telemedicine` |
 | 在线教育 / 网课 / 答疑 / 在线课堂 / online classroom / e-learning | `conference` | `online-classroom` |
-| 常规会议 / 企业会议 / 部门例会 / general meeting / corporate meeting / internal meeting | `conference` | `general-meeting` |
+| 常规会议 / 企业会议 / 部门例会 / general meeting / corporate meeting / internal meeting | `conference` | `general-conference` |
 | 研讨会 / webinar / 大型线上会议 / large seminar | `conference` | `webinar-large` |
-| 视频面试 / 远程面试 / video interview / 视频答辩 / 在线评审 | `conference` | `general-meeting`（少数人面对面，属通用会议形态） |
+| 视频面试 / 远程面试 / video interview / 视频答辩 / 在线评审 | `conference` | `general-conference`（少数人面对面，属通用会议形态） |
 **How to apply this table**: If the first message matches a row here and does NOT also explicitly name a TRTC product, treat `product` as inferred by this table. Mention the mapping in the recap (e.g. "Here's what I picked up: - Product: Conference (from 远程医疗问诊)"). If the row lists two candidate products, do NOT pick one silently — present both in the recap and let the user confirm.
 
 **From project file scan** (run these in parallel if the environment allows):

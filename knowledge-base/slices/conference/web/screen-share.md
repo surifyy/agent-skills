@@ -63,6 +63,13 @@ await stopScreenShare();
 ### 3. 屏幕分享主要面向桌面浏览器
 移动端 Web 对屏幕共享的支持极其有限，产品设计和文档说明都应以桌面场景为主。
 
+### 4. 本地共享 tile 不展示真实预览时，不要让它停留在纯黑屏
+部分 Web 环境或产品方案里，本地共享流不会展示真实预览，或者业务上本来就不希望在本地重复渲染共享内容。此时推荐改成“您正在共享屏幕”一类的示意态，并按需提供“结束共享”操作。
+
+这里的图标、文案、按钮布局都只是**示例**，不应被理解为固定 UI 规范；真正需要固定的是：用户一眼能知道自己正在共享，且不会看到无语义的黑底。
+
+如需具体承载方式，优先交给 `conference/web/video-layout` 中的 `participantViewUI` 或页面级 overlay 处理。
+
 ## 代码生成约束
 ### 编译必要条件
 - **通用条件**：见 [login-auth 平台 slice](../login-auth.md)。
@@ -76,6 +83,8 @@ await stopScreenShare();
    **Verify**: 检查是否存在 `startScreenShare(` 与 `stopScreenShare(`。
 2. **根据 `participantWithScreen` 或 `screenStatus` 驱动 UI** — 共享者变化必须能被页面感知。  
    **Verify**: 检查是否读取 `participantWithScreen` 或 `screenStatus`。
+3. **如果本地共享流不展示真实预览或表现为黑底，必须补共享中的提示态** —— 可以是状态文案、图标、结束共享入口或它们的组合，但不能只有无语义黑屏。  
+   **Verify**: 检查本地共享中的 UI 是否至少向用户表达“正在共享”这一状态。
 
 #### MUST NOT（生成时绝不能出现）
 
@@ -83,6 +92,8 @@ await stopScreenShare();
    **Verify**: 检查是否有浏览器差异说明或降级策略。
 2. **不要忽略浏览器原生停止共享后的状态变化** — UI 会残留“仍在共享”的假状态。  
    **Verify**: 检查是否有基于状态变化的收口逻辑。
+3. **不要把共享中的示意态写死成唯一视觉规范** —— 示例可以参考设计稿，但实现必须允许按业务风格调整。  
+   **Verify**: 检查说明文字是否把示例样式当作唯一合法 UI。
 
 ### 集成检查点
 - 当前 slice 常与 `conference/video-layout`、`conference/room-moderation` 联动。

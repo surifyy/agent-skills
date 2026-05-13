@@ -4,8 +4,8 @@
 
 version: 1
 scenarios:
-  - id: general-meeting
-    path: general-meeting/
+  - id: general-conference
+    path: general-conference/
     template: meeting-classic
     reference_html: meeting-classic/index.html
     notes: ""

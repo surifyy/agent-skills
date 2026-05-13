@@ -72,7 +72,7 @@ GENERAL_MEETING_MUST_RULES = {
 }
 
 SCENARIO_RULES = {
-    "general-meeting": GENERAL_MEETING_MUST_RULES,
+    "general-conference": GENERAL_MEETING_MUST_RULES,
 }
 
 

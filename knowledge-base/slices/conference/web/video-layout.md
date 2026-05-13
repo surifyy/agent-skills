@@ -52,6 +52,15 @@ api_docs:
 ### 4. 把挂件定制放到 `participantViewUI`，并区分摄像头流与共享流
 同一个挂件模板不应该机械复用于所有画面。共享流更适合展示“正在共享屏幕”等信息，摄像头流更适合展示昵称、角色和设备状态。
 
+当成员关闭摄像头时，**不要让摄像头画面只剩纯黑底**。推荐继续复用 `participantViewUI` 在挂件层叠加“头像 + 用户名”的占位态，让关闭摄像头后的 tile 仍然可识别。这个占位态只应用在摄像头流上，不要覆盖共享流。
+
+如果**本地用户已经开启屏幕分享，但本地共享 tile 不展示真实预览或表现为黑底**，也推荐在共享流上给一个居中的“正在共享屏幕”示例态，例如：图标 + 状态文案 + “结束共享”操作。这里的视觉样式只是示例，不是固定 UI 规范；业务可以替换成更轻的提示条、品牌化插画或其他表达方式，关键是不要让本地共享态只剩无语义的黑屏。
+
+另外要注意本地用户和远端用户的判断口径不同：
+- **远端用户摄像头流**：可以直接用 `participant.hasVideoStream === false` 判断是否显示占位层。
+- **本地用户摄像头流**：不要直接依赖 `participant.hasVideoStream`，应读取 `useDeviceState().cameraStatus` 判断本地摄像头是否关闭。
+- **本地用户共享流**：可结合 `participantWithScreen` 与 `localParticipant` 判断当前共享者是否是自己，再决定是否展示本地共享提示态。
+
 ### 5. 避免挂件层拦截默认交互
 如果挂件只是展示信息，优先给挂件容器设置 `pointer-events: none`，避免影响默认双击、拖拽或移动端手势。
 
@@ -89,7 +98,7 @@ const currentLayout = ref(RoomLayoutTemplate.GridLayout);
 </style>
 ```
 
-### 自定义挂件：通过 `participantViewUI` 展示昵称、角色和共享标识
+### 自定义挂件：通过 `participantViewUI` 展示昵称、角色和“关摄像头占位层”
 
 ```vue
 <template>
@@ -97,9 +106,24 @@ const currentLayout = ref(RoomLayoutTemplate.GridLayout);
     <RoomView :layout-template="currentLayout">
       <template #participantViewUI="{ participant, streamType }">
         <div class="participant-view-ui">
-          <span class="name">{{ participant.nameCard || participant.userName || participant.userId }}</span>
-          <span v-if="streamType === VideoStreamType.Screen" class="tag">正在共享屏幕</span>
-          <span v-else class="tag">{{ participant.role }}</span>
+          <div
+            v-if="showCameraPlaceholder(participant.userId, participant.hasVideoStream, streamType)"
+            class="camera-placeholder"
+          >
+            <span
+              class="camera-placeholder__avatar"
+              :style="participant.avatarUrl ? { backgroundImage: `url(${participant.avatarUrl})` } : {}"
+            >
+              {{ getDisplayName(participant).charAt(0) }}
+            </span>
+            <span class="camera-placeholder__name">{{ getDisplayName(participant) }}</span>
+          </div>
+
+          <div class="participant-view-ui__footer">
+            <span class="name">{{ getDisplayName(participant) }}</span>
+            <span v-if="streamType === VideoStreamType.Screen" class="tag">正在共享屏幕</span>
+            <span v-else class="tag">{{ participant.role }}</span>
+          </div>
         </div>
       </template>
     </RoomView>
@@ -109,12 +133,38 @@ const currentLayout = ref(RoomLayoutTemplate.GridLayout);
 <script setup lang="ts">
 import { ref } from 'vue';
 import {
+  DeviceStatus,
   RoomLayoutTemplate,
   RoomView,
   VideoStreamType,
+  useDeviceState,
+  useRoomParticipantState,
+  type RoomParticipant,
 } from 'tuikit-atomicx-vue3/room';
 
 const currentLayout = ref(RoomLayoutTemplate.GridLayout);
+const { cameraStatus } = useDeviceState();
+const { localParticipant } = useRoomParticipantState();
+
+function getDisplayName(participant: RoomParticipant) {
+  return participant.nameCard || participant.userName || participant.userId;
+}
+
+function showCameraPlaceholder(
+  participantUserId: string,
+  hasVideoStream: boolean,
+  streamType: VideoStreamType,
+) {
+  if (streamType === VideoStreamType.Screen) {
+    return false;
+  }
+
+  if (participantUserId === localParticipant.value?.userId) {
+    return cameraStatus.value !== DeviceStatus.On;
+  }
+
+  return hasVideoStream === false;
+}
 </script>
 
 <style scoped>
@@ -127,11 +177,48 @@ const currentLayout = ref(RoomLayoutTemplate.GridLayout);
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: flex-end;
-  padding: 8px;
-  gap: 8px;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px;
   color: #fff;
   pointer-events: none;
+}
+
+.camera-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.camera-placeholder__avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(255 255 255 / 20%);
+  background-position: center;
+  background-size: cover;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.camera-placeholder__name,
+.name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.participant-view-ui__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .tag {
@@ -141,6 +228,132 @@ const currentLayout = ref(RoomLayoutTemplate.GridLayout);
 }
 </style>
 ```
+
+> 如果业务不需要大面积占位层，也可以只保留底部昵称条；但只要产品要求“关闭摄像头后不要黑块”，就应该至少补一个可识别的头像 / 名称占位态。
+
+### 本地共享提示：共享流本地预览为黑底时，用示例化状态面板替代裸黑屏
+
+```vue
+<template>
+  <div class="room-view-wrapper">
+    <RoomView :layout-template="currentLayout">
+      <template #participantViewUI="{ participant, streamType }">
+        <div class="participant-view-ui">
+          <div
+            v-if="showLocalScreenSharePlaceholder(participant.userId, streamType)"
+            class="screen-share-placeholder"
+          >
+            <div class="screen-share-placeholder__icon" aria-hidden="true"></div>
+            <div class="screen-share-placeholder__title">您正在共享屏幕…</div>
+            <button
+              class="screen-share-placeholder__action"
+              type="button"
+              @click.stop="handleStopScreenShare"
+            >
+              结束共享
+            </button>
+          </div>
+        </div>
+      </template>
+    </RoomView>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue';
+import {
+  RoomLayoutTemplate,
+  RoomView,
+  VideoStreamType,
+  useDeviceState,
+  useRoomParticipantState,
+} from 'tuikit-atomicx-vue3/room';
+
+const currentLayout = ref(RoomLayoutTemplate.SidebarLayout);
+const { stopScreenShare } = useDeviceState();
+const { localParticipant, participantWithScreen } = useRoomParticipantState();
+
+function showLocalScreenSharePlaceholder(
+  participantUserId: string,
+  streamType: VideoStreamType,
+) {
+  return (
+    streamType === VideoStreamType.Screen &&
+    participantUserId === localParticipant.value?.userId &&
+    participantWithScreen.value?.userId === localParticipant.value?.userId
+  );
+}
+
+async function handleStopScreenShare() {
+  await stopScreenShare();
+}
+</script>
+
+<style scoped>
+.room-view-wrapper {
+  width: 100%;
+  height: 100%;
+}
+
+.participant-view-ui {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  pointer-events: none;
+}
+
+.screen-share-placeholder {
+  margin: auto;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 20px;
+  border-radius: 20px;
+  background: rgb(255 255 255 / 82%);
+  color: #666;
+  text-align: center;
+  pointer-events: auto;
+}
+
+.screen-share-placeholder__icon {
+  width: 48px;
+  height: 32px;
+  border: 2px solid currentColor;
+  border-radius: 6px;
+  position: relative;
+}
+
+.screen-share-placeholder__icon::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  width: 12px;
+  height: 8px;
+  border: 2px solid currentColor;
+  border-top: 0;
+  border-left: 0;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.screen-share-placeholder__title {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.screen-share-placeholder__action {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 16px;
+  background: #e65b4e;
+  color: #fff;
+}
+</style>
+```
+
+> 这个面板只是示例化占位，不要求所有项目都做成同样的灰底居中卡片；你可以只保留文案，也可以把“结束共享”留在工具栏，只要让本地共享态不再是无语义黑屏即可。
 
 ### 状态驱动：共享开始时切到侧边栏，无共享或单人时回到宫格
 
@@ -325,11 +538,17 @@ function handleStreamDoubleClick(payload: {
    **Verify**: 检查模板切换是否全部基于 `RoomLayoutTemplate`。
 3. **不要让纯展示型挂件默认拦截交互** — 会影响双击、拖拽或移动端手势。  
    **Verify**: 检查挂件层是否使用 `pointer-events: none` 或把点击区限制在局部元素上。
-4. **不要在客户没提特殊布局时绕开 `RoomView` 自己手工编排全部视频 DOM** — 除非业务明确提出 `RoomView` 无法覆盖的布局诉求，并接受逐路管理播放区域和尺寸约束。  
+4. **不要直接用本地 `participant.hasVideoStream` 判断摄像头关闭** —— 本地设备开关状态应读取 `useDeviceState().cameraStatus`。  
+   **Verify**: 检查本地 tile 的关闭态是否来自设备状态而不是本地 participant 流字段。
+5. **不要把本地共享流的黑底直接当作可接受默认态** —— 如果本地共享 tile 不展示真实预览，就应补共享中的语义化提示。  
+   **Verify**: 检查本地共享流在无预览时是否仍只有空白 / 黑底且没有任何状态说明。
+6. **不要把“共享中提示面板”的视觉样式固化成唯一规范** —— 图标、文案、按钮位置都应允许按业务风格调整；真正需要固定的是语义，而不是灰底卡片本身。  
+   **Verify**: 检查文档或生成说明是否把示例写成“仅能这样做”的硬编码样式约束。
+7. **不要在客户没提特殊布局时绕开 `RoomView` 自己手工编排全部视频 DOM** — 除非业务明确提出 `RoomView` 无法覆盖的布局诉求，并接受逐路管理播放区域和尺寸约束。  
    **Verify**: 检查通用会议或常规布局场景是否仍以 `RoomView` 作为主容器。
-5. **不要在自定义单路布局里放任画面比例失控** — 过窄、过高或随内容抖动的容器会明显影响播放体验。  
+8. **不要在自定义单路布局里放任画面比例失控** — 过窄、过高或随内容抖动的容器会明显影响播放体验。  
    **Verify**: 检查单路播放器外层是否具备稳定尺寸，且优先保持接近 `16:9`。
-6. **不要把“非可视区域按需渲染”误判为流异常** — 先确认是否属于布局容器的正常策略。  
+9. **不要把“非可视区域按需渲染”误判为流异常** — 先确认是否属于布局容器的正常策略。  
    **Verify**: 检查排障说明是否区分布局策略与真实故障。
 
 ### 集成检查点

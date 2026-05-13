@@ -2,7 +2,7 @@
 # The hook counts these patterns across ALL .vue files in the project src/.
 # A v-for on a pattern with allows_v_for satisfies any min_count.
 
-scenario: general-meeting
+scenario: general-conference
 reference: .claude/skills/trtc/room-builder/uikit/assets/themes/meeting-classic/index.html
 
 landmarks:

@@ -110,7 +110,7 @@ Options are **product-dependent**. Pull the concrete scenario list from `knowled
 | 1 | Webinar / large-audience seminar | `scenario = webinar-large` |
 | 2 | Online education / classroom | `scenario = online-classroom` |
 | 3 | Telemedicine / remote consultation | `scenario = telemedicine` |
-| 4 | General meeting / 常规会议 (generic, no specialized format) | `scenario = general-meeting` || 5 | I want to pick individual features myself | fall through to A2-Q1 |
+| 4 | General meeting / 常规会议 (generic, no specialized format) | `scenario = general-conference` || 5 | I want to pick individual features myself | fall through to A2-Q1 |
 | 6 | Type something | free-text |
 
 **If `product = live`:**
@@ -125,7 +125,7 @@ Options are **product-dependent**. Pull the concrete scenario list from `knowled
 ## A2-Q0.5 — UI generation mode (conference scenarios only)
 
 **Trigger**: the user picked one of the 4 conference scenarios in A2-Q0
-(`general-meeting` / `online-classroom` / `telemedicine` / `webinar-large`).
+(`general-conference` / `online-classroom` / `telemedicine` / `webinar-large`).
 Skip for all other products and for the A2-Q1 fall-through branch.
 
 **Purpose**: decide how topic will generate code — as a fused Vue SFC that
