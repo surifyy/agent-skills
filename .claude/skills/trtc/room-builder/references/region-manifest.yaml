@@ -12,7 +12,7 @@
 
 meeting-classic:
   description: Conference 通用会议主题（经典蓝白风格）
-  scenarios: [general-meeting, webinar-large]
+  scenarios: [general-conference, webinar-large]
   base_path: regions/meeting-classic
   regions:
     - component: TopBar

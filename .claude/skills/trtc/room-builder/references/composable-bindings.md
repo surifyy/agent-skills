@@ -289,7 +289,7 @@ Then in template:
 ## Fallback when a composable is absent from the scenario
 
 If the scenario's slice list does not cover a given composable (e.g.
-`general-meeting` has no raise-hand), topic either (a) omits the corresponding
+`general-conference` has no raise-hand), topic either (a) omits the corresponding
 UI region, or (b) keeps a static placeholder. Topic chooses based on whether
 the region is structurally essential (toolbar / stage → keep placeholder;
 side-panel tab → omit).

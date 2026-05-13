@@ -288,7 +288,7 @@ A 形态所有列出的区域都"显示"，不需要分支。
 
 ### B 形态模板（主链路 + 可选增强）
 
-适合：general-meeting、协作工具等有清晰 P0/P1 边界的场景。
+适合：general-conference、协作工具等有清晰 P0/P1 边界的场景。
 
 ```markdown
 # {场景中文名}（{scenario-id}）
@@ -369,7 +369,7 @@ A 形态所有列出的区域都"显示"，不需要分支。
 
 老文件不强制立刻按 spec 重写。建议路径：
 
-1. **`general-meeting.md`** → 走 B 形态。原文里已有"P0 默认会议骨架 / P1 按需补命中"分层结构，只需补「能力展示与 coverage 选择」「UI 区域 / Slice 映射」「验收 Checklist」三节，其他内容可移到「设计取舍」可选章节。
+1. **`general-conference.md`** → 走 B 形态。原文里已有"P0 默认会议骨架 / P1 按需补命中"分层结构，只需补「能力展示与 coverage 选择」「UI 区域 / Slice 映射」「验收 Checklist」三节，其他内容可移到「设计取舍」可选章节。
 
 2. **`entertainment-live-room.md`** → 走 A 形态。原文按"主播端流程 / 观众端流程 / 阶段一 / 阶段二"组织，先按 spec 改为「能力清单」「能力展示」+ 验收 Checklist；流程描述可保留为「子场景命中差异」可选章节。
 

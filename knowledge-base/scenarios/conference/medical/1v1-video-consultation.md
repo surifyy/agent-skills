@@ -3,7 +3,7 @@ id: 1v1-video-consultation
 name: 1v1视频问诊
 product: conference
 room_type: standard
-base_scenario: standard-conference
+base_scenario: general-conference
 industry: medical
 business_traits:
   - waiting-room
@@ -27,14 +27,14 @@ slices:
 
 ## 场景描述
 
-本文描述的是一个完整的 **1v1 视频问诊** 场景，它属于 **`standard-conference` 的医疗派生场景**。患者先进入候诊室等待叫号，医生在首页查看业务后台维护的待接诊列表；当医生进入诊室并呼叫患者后，患者再真正进入问诊房间。问诊过程中，医生一边视频沟通，一边填写病历、处方并查看患者资料；问诊结束后，医生结束本次会诊，患者进入完成页。
+本文描述的是一个完整的 **1v1 视频问诊** 场景，它属于 **`general-conference` 的医疗派生场景**。患者先进入候诊室等待叫号，医生在首页查看业务后台维护的待接诊列表；当医生进入诊室并呼叫患者后，患者再真正进入问诊房间。问诊过程中，医生一边视频沟通，一边填写病历、处方并查看患者资料；问诊结束后，医生结束本次会诊，患者进入完成页。
 
 ## 场景边界
 
 | 需求形态 | 是否直接沿用本文 | 说明 |
 |------|------------------|------|
 | 1v1 视频问诊 | 是 | 本文的默认目标场景，医生与患者一对一进入问诊房间。 |
-| 多人远程会诊 | 否 | 一旦进入多医生 / 多患者 / 家属共同入会，应优先查看 `medical-multidoctor-consultation.md`；它本质仍基于 `standard-conference`，但已补齐医疗会诊业务外壳。 |
+| 多人远程会诊 | 否 | 一旦进入多医生 / 多患者 / 家属共同入会，应优先查看 `medical-multidoctor-consultation.md`；它本质仍基于 `general-conference`，但已补齐医疗会诊业务外壳。 |
 | 复诊随访 / 术后回访 | 部分适合 | 如果仍是稳定 1v1 视频沟通，可沿用本文；若更像纯呼叫或消息提醒链路，再单独评估。 |
 
 ## 前置条件
