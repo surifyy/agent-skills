@@ -1,4 +1,4 @@
-"""Unit tests for .claude/skills/trtc/room-builder/guardrails/lib/theme_registry.py.
+"""Unit tests for skills/trtc/room-builder/guardrails/lib/theme_registry.py.
 
 TDD discipline: tests added one at a time. Each pins one observable behavior
 of the registry loader.
@@ -9,7 +9,7 @@ no conftest.
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / ".claude/skills/trtc/room-builder/guardrails"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "skills/trtc/room-builder/guardrails"))
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -122,7 +122,7 @@ def test_load_registry_raises_on_malformed_yaml(tmp_path):
     exactly the failure mode this whole architecture exists to prevent.
     """
     fake_kb = tmp_path / "kb"
-    yaml_dir = fake_kb / ".claude/skills/trtc/room-builder/references"
+    yaml_dir = fake_kb / "skills/trtc/room-builder/references"
     yaml_dir.mkdir(parents=True)
     (yaml_dir / "scenarios.yaml").write_text(
         "version: 1\n"
@@ -153,7 +153,7 @@ def test_theme_source_dir_resolves_against_kb_root(tmp_path):
     deterministic.
     """
     fake_kb = tmp_path / "kb"
-    yaml_dir = fake_kb / ".claude/skills/trtc/room-builder/references"
+    yaml_dir = fake_kb / "skills/trtc/room-builder/references"
     yaml_dir.mkdir(parents=True)
     (yaml_dir / "scenarios.yaml").write_text(
         "version: 1\n"

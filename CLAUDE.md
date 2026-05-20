@@ -1,18 +1,41 @@
 # TRTC AI Integration 知识库
 
-本项目是 TRTC（Tencent Real-Time Communication）的 AI 辅助集成知识库，通过 Claude Code Skills 帮助开发者快速集成和排障。
+本项目是 TRTC（Tencent Real-Time Communication）的 AI 辅助集成知识库，通过 Plugin 模式分发，支持 Claude Code / Cursor / Codex / CodeBuddy 一键安装。
+
+## 分发模式
+
+本项目是标准 **Plugin** 格式，用户无需 clone 仓库即可使用。
+
+```bash
+# 用户安装（GitHub 发布后）
+/plugin marketplace add tencent-trtc/trtc-ai-integration
+/plugin install trtc-ai-setup
+```
+
+- Skills 路径引用使用 `${CLAUDE_PLUGIN_ROOT}/knowledge-base/...`
+- Hooks 通过 `hooks/hooks.json` 分发（路径使用 `${CLAUDE_PLUGIN_ROOT}`）
+- `.claude/skills/trtc-eval/` 为维护者专属，不随 plugin 分发
 
 ## 项目结构
 
 ```
-ai-integration/
-├── CLAUDE.md                          # 本文件 — 项目级 AI 指令
-├── .claude/skills/                    # Claude Code Skills（每个子 skill 都是顶层条目，便于 Skill 工具发现）
+trtc-ai-integration/
+├── .claude-plugin/plugin.json         # Claude Code plugin 入口
+├── .cursor-plugin/plugin.json         # Cursor plugin 入口
+├── .codex-plugin/plugin.json          # Codex plugin 入口
+├── .codebuddy-plugin/plugin.json      # CodeBuddy plugin 入口
+├── hooks/hooks.json                   # Plugin hooks（路径使用 ${CLAUDE_PLUGIN_ROOT}）
+├── skills/                            # Plugin Skills（用户安装后自动加载）
 │   ├── trtc/SKILL.md                  # 路由 skill（入口）
 │   ├── trtc-onboarding/SKILL.md       # 新手引导（分流 → demo/集成/排障/扩展）
 │   ├── trtc-search/SKILL.md           # 搜索 slice（原子能力）和 scenario（集成场景）
 │   ├── trtc-apply/SKILL.md            # 应用/校验代码
+│   ├── trtc-docs/SKILL.md             # 文档问答（定价/配额/错误码等事实性问题）
 │   └── trtc-topic/SKILL.md            # 场景引导
+├── .claude/skills/trtc-eval/          # 维护者专属 eval skill（不随 plugin 分发）
+├── CLAUDE.md                          # 本文件 — 项目级 AI 指令
+├── AGENTS.md                          # 一行引用 CLAUDE.md（兼容渲染脚本）
+├── CODEBUDDY.md                       # CodeBuddy 兼容入口
 ├── llms.txt                           # llms.txt 内容规范 + 初始模板（顶层产品索引）
 ├── llms/                              # llms.txt 子文件模板（最终由文档站构建流程自动生成）
 │   ├── {product}.txt                  # 产品概述 + 平台链接（如 live.txt, conference.txt）
@@ -27,6 +50,8 @@ ai-integration/
 │   │   │       └── {ability}.md       # 平台实现细节
 │   └── scenarios/                     # 场景组合
 │       └── {scenario-name}.md         # 引用多个 slice 的完整场景
+├── ai-instructions/                   # 维护者专属 — room-builder AI 指令源文件
+└── tests/                             # 维护者专属 — eval 测试用例
 ```
 
 ## 核心概念
@@ -58,9 +83,9 @@ Slice 分为两层：
 
 ### 三层架构
 ```
-Layer 3: Skills（用户交互层）— trtc / onboarding / search / apply / topic
+Layer 3: Skills（用户交互层）— trtc / onboarding / search / apply / docs / topic
 Layer 2: Knowledge Base（结构化知识层）— slices/ + scenarios/ + index.yaml
-Layer 1: Claude Code Runtime — .claude/skills/ + CLAUDE.md
+Layer 1: Plugin Runtime — skills/ (分发) + hooks/hooks.json + CLAUDE.md
 ```
 
 ## AI 行为指令
@@ -90,7 +115,7 @@ Layer 1: Claude Code Runtime — .claude/skills/ + CLAUDE.md
 Web / Android / iOS / Flutter / Electron / Unity
 
 <!-- AI-INSTRUCTIONS:BEGIN -->
-<!-- DO NOT EDIT — generated from ai-instructions/ by .claude/skills/trtc/room-builder/tools/render_ai_instructions.py. Edit the source markdown and re-run the renderer instead. -->
+<!-- DO NOT EDIT — generated from ai-instructions/ by skills/trtc/room-builder/tools/render_ai_instructions.py. Edit the source markdown and re-run the renderer instead. -->
 
 ## ui-mode
 
@@ -113,7 +138,7 @@ project (`project_state.project_root` in the session file):
 These are wired up by:
 
 ```bash
-python3 .claude/skills/trtc/room-builder/guardrails/trtc_prepare_ui.py
+python3 skills/trtc/room-builder/guardrails/trtc_prepare_ui.py
 ```
 
 The script is idempotent — safe to run at any time. **Run it before
@@ -125,12 +150,12 @@ half-wired project.
 
 Every interactive or visually distinct element in your generated `.vue`
 templates must use a `ui-*` class drawn from the catalog at
-`.claude/skills/trtc/room-builder/uikit/references/component-catalog.md`.
+`skills/trtc/room-builder/uikit/references/component-catalog.md`.
 
 The minimum is enforced (per file ≥ 3 classes; project total ≥ 30) by:
 
 ```bash
-python3 .claude/skills/trtc/room-builder/guardrails/trtc_verify_ui.py --file <path-to-vue>
+python3 skills/trtc/room-builder/guardrails/trtc_verify_ui.py --file <path-to-vue>
 ```
 
 If this exits 2, read the stderr — it names the file and the count, and
@@ -141,7 +166,7 @@ points at the catalog. Fix the file before continuing.
 Run the project-wide check:
 
 ```bash
-python3 .claude/skills/trtc/room-builder/guardrails/trtc_verify_ui.py
+python3 skills/trtc/room-builder/guardrails/trtc_verify_ui.py
 ```
 
 Only declare done when this exits 0. The Stop / pre-commit hook will run

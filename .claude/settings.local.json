@@ -23,7 +23,15 @@
       "Bash(curl -sk https://localhost:8080)",
       "Bash(jobs -l)",
       "Bash(kill 16935)",
-      "Bash(curl -s http://localhost:8080)"
+      "Bash(curl -s http://localhost:8080)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(read dir *)",
+      "Bash(rm -rf .claude/skills/__TRACKED_VAR__ done)",
+      "Bash(cat)",
+      "Bash(sed -i '' 's|skills/trtc-room-builder/|skills/trtc/room-builder/|g' hooks/hooks.json)",
+      "Bash(git rm *)"
     ]
   },
   "enableAllProjectMcpServers": true,

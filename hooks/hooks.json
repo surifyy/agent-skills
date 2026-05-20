@@ -1,0 +1,67 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f \"${CLAUDE_PLUGIN_ROOT}/skills/trtc/room-builder/guardrails/trtc_prepare_ui.py\" ] && python3 \"${CLAUDE_PLUGIN_ROOT}/skills/trtc/room-builder/guardrails/trtc_prepare_ui.py\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f \"${CLAUDE_PLUGIN_ROOT}/skills/trtc-topic/guardrails/gate_slice_read.py\" ] && python3 \"${CLAUDE_PLUGIN_ROOT}/skills/trtc-topic/guardrails/gate_slice_read.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f \"${CLAUDE_PLUGIN_ROOT}/skills/trtc-topic/guardrails/gate_slice_write.py\" ] && python3 \"${CLAUDE_PLUGIN_ROOT}/skills/trtc-topic/guardrails/gate_slice_write.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/skills/trtc/room-builder/guardrails/verify_ui_post_write.sh\""
+          },
+          {
+            "type": "command",
+            "command": "[ -f \"${CLAUDE_PLUGIN_ROOT}/skills/trtc-apply/guardrails/verify_slice_must_rules.py\" ] && python3 \"${CLAUDE_PLUGIN_ROOT}/skills/trtc-apply/guardrails/verify_slice_must_rules.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f \"${CLAUDE_PLUGIN_ROOT}/skills/trtc-topic/guardrails/stop_require_apply_evidence.py\" ] && python3 \"${CLAUDE_PLUGIN_ROOT}/skills/trtc-topic/guardrails/stop_require_apply_evidence.py\""
+          },
+          {
+            "type": "command",
+            "command": "[ -f \"${CLAUDE_PLUGIN_ROOT}/skills/trtc/room-builder/guardrails/trtc_verify_ui.py\" ] && python3 \"${CLAUDE_PLUGIN_ROOT}/skills/trtc/room-builder/guardrails/trtc_verify_ui.py\""
+          },
+          {
+            "type": "command",
+            "command": "[ -f \"${CLAUDE_PLUGIN_ROOT}/skills/trtc-apply/guardrails/verify_apply_project.py\" ] && python3 \"${CLAUDE_PLUGIN_ROOT}/skills/trtc-apply/guardrails/verify_apply_project.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

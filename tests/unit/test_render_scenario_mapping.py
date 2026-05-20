@@ -1,4 +1,4 @@
-"""Unit tests for .claude/skills/trtc/room-builder/tools/render_scenario_mapping.py.
+"""Unit tests for skills/trtc/room-builder/tools/render_scenario_mapping.py.
 
 The renderer turns scenarios.yaml → scenario-mapping.md. Tests pin the
 output format because topic SKILL.md Step 3.5 reads the .md as a
@@ -8,10 +8,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / ".claude/skills/trtc/room-builder/guardrails"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "skills/trtc/room-builder/guardrails"))
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-SCRIPT = REPO_ROOT / ".claude/skills/trtc/room-builder/tools" / "render_scenario_mapping.py"
+SCRIPT = REPO_ROOT / "skills/trtc/room-builder/tools" / "render_scenario_mapping.py"
 
 
 def _make_kb(tmp_path, yaml_text):
@@ -23,21 +23,21 @@ def _make_kb(tmp_path, yaml_text):
     """
     import shutil as _sh
     kb = tmp_path / "tmp-kb"
-    yaml_dir = kb / ".claude/skills/trtc/room-builder/references"
+    yaml_dir = kb / "skills/trtc/room-builder/references"
     yaml_dir.mkdir(parents=True)
     (yaml_dir / "scenarios.yaml").write_text(yaml_text)
-    _sh.copytree(REPO_ROOT / ".claude/skills/trtc/room-builder/guardrails", kb / ".claude/skills/trtc/room-builder/guardrails")
-    _sh.copytree(REPO_ROOT / ".claude/skills/trtc/room-builder/tools", kb / ".claude/skills/trtc/room-builder/tools")
+    _sh.copytree(REPO_ROOT / "skills/trtc/room-builder/guardrails", kb / "skills/trtc/room-builder/guardrails")
+    _sh.copytree(REPO_ROOT / "skills/trtc/room-builder/tools", kb / "skills/trtc/room-builder/tools")
     return kb
 
 
 def _md_path(kb):
-    return kb / ".claude/skills/trtc/room-builder/references/scenario-mapping.md"
+    return kb / "skills/trtc/room-builder/references/scenario-mapping.md"
 
 
 def _run_render(kb, *args):
     return subprocess.run(
-        ["python3", str(kb / ".claude/skills/trtc/room-builder/tools" / "render_scenario_mapping.py"), *args],
+        ["python3", str(kb / "skills/trtc/room-builder/tools" / "render_scenario_mapping.py"), *args],
         capture_output=True, text=True, cwd=str(kb),
     )
 
@@ -207,7 +207,7 @@ def test_check_mode_fails_when_yaml_changed(tmp_path):
         "  - id: x\n    path: x/\n    template: ~\n    reference_html: ~\n    notes: ''\n    theme: ~\n"
     )
     assert _run_render(kb).returncode == 0
-    yaml_path = kb / ".claude/skills/trtc/room-builder/references/scenarios.yaml"
+    yaml_path = kb / "skills/trtc/room-builder/references/scenarios.yaml"
     yaml_path.write_text(yaml_path.read_text() +
         "  - id: y\n    path: y/\n    template: ~\n    reference_html: ~\n    notes: ''\n    theme: ~\n"
     )
@@ -259,6 +259,6 @@ def test_render_against_real_scenarios_yaml_matches_committed_md():
     )
     assert result.returncode == 0, (
         f"committed scenario-mapping.md must match yaml; "
-        f"re-run `python3 .claude/skills/trtc/room-builder/tools/render_scenario_mapping.py` and commit. "
+        f"re-run `python3 skills/trtc/room-builder/tools/render_scenario_mapping.py` and commit. "
         f"Stderr: {result.stderr}"
     )

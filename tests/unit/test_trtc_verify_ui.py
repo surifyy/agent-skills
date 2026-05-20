@@ -1,4 +1,4 @@
-"""Unit tests for .claude/skills/trtc/room-builder/guardrails/trtc_verify_ui.py.
+"""Unit tests for skills/trtc/room-builder/guardrails/trtc_verify_ui.py.
 
 TDD discipline: tests added one at a time. Each test pins one observable
 behavior of the verifier. The implementation is grown to satisfy each test
@@ -11,10 +11,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / ".claude/skills/trtc/room-builder/guardrails"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "skills/trtc/room-builder/guardrails"))
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-SCRIPT = REPO_ROOT / ".claude/skills/trtc/room-builder/guardrails" / "trtc_verify_ui.py"
+SCRIPT = REPO_ROOT / "skills/trtc/room-builder/guardrails" / "trtc_verify_ui.py"
 
 
 def _write_session(tmp_path, *, ui_mode, project_root=None, scenario="general-conference"):
@@ -461,9 +461,9 @@ def _setup_alternate_theme_kb(tmp_path, *, slug="theme-test", data_theme="tt",
     """
     import shutil as _sh
     kb = tmp_path / "tmp-kb"
-    yaml_dir = kb / ".claude/skills/trtc/room-builder/references"
+    yaml_dir = kb / "skills/trtc/room-builder/references"
     yaml_dir.mkdir(parents=True)
-    theme_src = kb / ".claude/skills/trtc/room-builder/uikit/assets/themes" / slug
+    theme_src = kb / "skills/trtc/room-builder/uikit/assets/themes" / slug
     theme_src.mkdir(parents=True)
     (theme_src / "index.css").write_text("/* alt theme */\n")
 
@@ -477,14 +477,14 @@ def _setup_alternate_theme_kb(tmp_path, *, slug="theme-test", data_theme="tt",
         '    notes: ""\n'
         "    theme:\n"
         f"      slug: {slug}\n"
-        f"      source_dir: .claude/skills/trtc/room-builder/uikit/assets/themes/{slug}\n"
+        f"      source_dir: skills/trtc/room-builder/uikit/assets/themes/{slug}\n"
         f"      data_theme: {data_theme}\n"
         f"      import_path: '@/themes/{slug}/index.css'\n"
         f"      target_dir: {target_dir}\n"
     )
     (yaml_dir / "scenarios.yaml").write_text(yaml_text)
-    _sh.copytree(REPO_ROOT / ".claude/skills/trtc/room-builder/guardrails", kb / ".claude/skills/trtc/room-builder/guardrails")
-    _sh.copytree(REPO_ROOT / ".claude/skills/trtc/room-builder/tools", kb / ".claude/skills/trtc/room-builder/tools")
+    _sh.copytree(REPO_ROOT / "skills/trtc/room-builder/guardrails", kb / "skills/trtc/room-builder/guardrails")
+    _sh.copytree(REPO_ROOT / "skills/trtc/room-builder/tools", kb / "skills/trtc/room-builder/tools")
     return kb, slug
 
 
@@ -515,7 +515,7 @@ def test_v1_checks_theme_specific_target_dir(tmp_path):
     )
 
     result = subprocess.run(
-        ["python3", str(kb / ".claude/skills/trtc/room-builder/guardrails" / "trtc_verify_ui.py"),
+        ["python3", str(kb / "skills/trtc/room-builder/guardrails" / "trtc_verify_ui.py"),
          "--session-path", str(session)],
         capture_output=True, text=True, cwd=str(kb),
     )
@@ -552,7 +552,7 @@ def test_v3_checks_theme_specific_data_theme_attribute(tmp_path):
     )
 
     result = subprocess.run(
-        ["python3", str(kb / ".claude/skills/trtc/room-builder/guardrails" / "trtc_verify_ui.py"),
+        ["python3", str(kb / "skills/trtc/room-builder/guardrails" / "trtc_verify_ui.py"),
          "--session-path", str(session)],
         capture_output=True, text=True, cwd=str(kb),
     )

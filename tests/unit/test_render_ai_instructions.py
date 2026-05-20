@@ -1,4 +1,4 @@
-"""Unit tests for .claude/skills/trtc/room-builder/tools/render_ai_instructions.py.
+"""Unit tests for skills/trtc/room-builder/tools/render_ai_instructions.py.
 
 Renders ai-instructions/*.md → tool-specific entry files. Tests pin the
 rendering contract — they don't care what the content says, only how it
@@ -8,10 +8,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / ".claude/skills/trtc/room-builder/guardrails"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "skills/trtc/room-builder/guardrails"))
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-SCRIPT = REPO_ROOT / ".claude/skills/trtc/room-builder/tools" / "render_ai_instructions.py"
+SCRIPT = REPO_ROOT / "skills/trtc/room-builder/tools" / "render_ai_instructions.py"
 
 
 def _run_render(project_root, *args):

@@ -17,7 +17,7 @@ project (`project_state.project_root` in the session file):
 These are wired up by:
 
 ```bash
-python3 .claude/skills/trtc/room-builder/guardrails/trtc_prepare_ui.py
+python3 skills/trtc/room-builder/guardrails/trtc_prepare_ui.py
 ```
 
 The script is idempotent — safe to run at any time. **Run it before
@@ -29,12 +29,12 @@ half-wired project.
 
 Every interactive or visually distinct element in your generated `.vue`
 templates must use a `ui-*` class drawn from the catalog at
-`.claude/skills/trtc/room-builder/uikit/references/component-catalog.md`.
+`skills/trtc/room-builder/uikit/references/component-catalog.md`.
 
 The minimum is enforced (per file ≥ 3 classes; project total ≥ 30) by:
 
 ```bash
-python3 .claude/skills/trtc/room-builder/guardrails/trtc_verify_ui.py --file <path-to-vue>
+python3 skills/trtc/room-builder/guardrails/trtc_verify_ui.py --file <path-to-vue>
 ```
 
 If this exits 2, read the stderr — it names the file and the count, and
@@ -45,7 +45,7 @@ points at the catalog. Fix the file before continuing.
 Run the project-wide check:
 
 ```bash
-python3 .claude/skills/trtc/room-builder/guardrails/trtc_verify_ui.py
+python3 skills/trtc/room-builder/guardrails/trtc_verify_ui.py
 ```
 
 Only declare done when this exits 0. The Stop / pre-commit hook will run

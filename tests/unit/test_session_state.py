@@ -1,4 +1,4 @@
-"""Unit tests for .claude/skills/trtc/room-builder/guardrails/lib/session_state.py.
+"""Unit tests for skills/trtc/room-builder/guardrails/lib/session_state.py.
 
 Tests grown TDD-style. Each pins one observable behavior of the helpers.
 
@@ -12,7 +12,7 @@ Why a dedicated test file (instead of testing only through prepare/verify):
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / ".claude/skills/trtc/room-builder/guardrails"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "skills/trtc/room-builder/guardrails"))
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 

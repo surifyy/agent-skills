@@ -1,0 +1,6 @@
+{
+  "name": "trtc-ai-setup",
+  "description": "TRTC AI Integration Assistant for Codex",
+  "author": { "name": "Tencent TRTC Team" },
+  "skills": "./skills/"
+}
