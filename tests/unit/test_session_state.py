@@ -25,7 +25,7 @@ def _session(**fields):
         "ui_mode": "full-ui",
         "product": "conference",
         "intent": "integrate-scenario",
-        "scenario": "general-meeting",
+        "scenario": "general-conference",
         "project_state": {"project_root": "/tmp/whatever"},
     }
     base.update(fields)
@@ -82,8 +82,8 @@ def test_in_scope_false_when_scenario_has_no_theme():
 
 
 def test_in_scope_true_when_scenario_has_theme():
-    """The happy path: full-ui + general-meeting (themed) → in scope."""
-    assert session_state.in_scope(_session(scenario="general-meeting"), REPO_ROOT) is True
+    """The happy path: full-ui + general-conference (themed) → in scope."""
+    assert session_state.in_scope(_session(scenario="general-conference"), REPO_ROOT) is True
 
 
 # ---------------------------------------------------------------------------

@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 GUARDRAILS_DIR = Path(__file__).resolve().parent
-ROOM_BUILDER_GUARDRAILS = GUARDRAILS_DIR.parents[1] / 'room-builder' / 'guardrails'
+ROOM_BUILDER_GUARDRAILS = GUARDRAILS_DIR.parents[1] / 'trtc' / 'room-builder' / 'guardrails'
 
 sys.path.insert(0, str(ROOM_BUILDER_GUARDRAILS))
 from lib.session_state import (
@@ -35,7 +35,7 @@ sys.path.insert(0, str(GUARDRAILS_DIR))
 from apply_lib.rule_parser import load_rules_for_product_platform, rules_for_file
 sys.path.pop(0)
 
-REPO_ROOT = Path(__file__).resolve().parents[5]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 SESSION_PATH = REPO_ROOT / '.trtc-session.yaml'
 
 

@@ -1,6 +1,6 @@
 # Path B — Troubleshooting
 
-> Loaded by `onboarding/SKILL.md` when `intent = troubleshoot` in `.trtc-session.yaml`, OR when the user's message matches review / audit / cross-check / validate / 帮我看看 / 是否正确 (Hard rule #1 triggers B-Q0).
+> Loaded by `../../trtc-onboarding/SKILL.md` when `intent = troubleshoot` in `.trtc-session.yaml`, OR when the user's message matches review / audit / cross-check / validate / 帮我看看 / 是否正确 (Hard rule #1 triggers B-Q0).
 > Before reading this file, SKILL.md must have populated `.trtc-session.yaml` and passed Stage 1 calibration.
 
 **Your role: Debugger.** You walk the diagnostic tree, find the root cause, and fix it.
@@ -74,11 +74,11 @@ Question text: "Which of these best matches what you're seeing?"
 | 6 | UI layout broken / rendering glitch | relevant UI sections (coguest-apply layout, etc.) | ask for screenshot |
 | 7 | Type something | free-text description |
 
-**Option 7 handling (free-text symptom):** Call `search/SKILL.md` with `intent=troubleshoot` and the user's free-text description as `query`. search matches against slice troubleshooting sections and in-file `error_codes` sections. Read `response` fields by name (see `search/SKILL.md` → "Response Contract"):
+**Option 7 handling (free-text symptom):** Call `../../trtc-search/SKILL.md` with `intent=troubleshoot` and the user's free-text description as `query`. search matches against slice troubleshooting sections and in-file `error_codes` sections. Read `response` fields by name (see `../../trtc-search/SKILL.md` → "Response Contract"):
 
 - `response.status == 'matched'` → load `matches[].file_paths_read`, walk the slice's troubleshooting tree against the symptom.
-- `response.status == 'status_planned'` → the slice is indexed but not yet written. Show `matches[0]`'s index-level description, tell the user this troubleshooting playbook is still being authored, then fall back to `docs/SKILL.md` for the official-doc equivalent.
-- `response.status ∈ {no_match, no_slice}` → fall back to `docs/SKILL.md` for official documentation lookup.
+- `response.status == 'status_planned'` → the slice is indexed but not yet written. Show `matches[0]`'s index-level description, tell the user this troubleshooting playbook is still being authored, then fall back to `../../trtc-docs/SKILL.md` for the official-doc equivalent.
+- `response.status ∈ {no_match, no_slice}` → fall back to `../../trtc-docs/SKILL.md` for official documentation lookup.
 - `response.status == 'ambiguous_product'` → ask the user which of `response.ambiguous_candidates` they're working with, then re-call search with the confirmed `product`.
 
 After the user picks a symptom, immediately check `.trtc-session.yaml` for code access:

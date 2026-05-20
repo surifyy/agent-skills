@@ -29,7 +29,7 @@ def test_load_registry_parses_all_4_scenarios():
     """
     reg = theme_registry.load_registry(REPO_ROOT)
     assert set(reg.keys()) == {
-        "general-meeting",
+        "general-conference",
         "webinar-large",
         "online-classroom",
         "telemedicine",
@@ -58,13 +58,13 @@ def test_theme_for_scenario_returns_none_for_todo_rows():
 
 
 def test_theme_for_scenario_returns_dataclass_for_meeting_classic():
-    """general-meeting maps to a fully-populated Theme.
+    """general-conference maps to a fully-populated Theme.
 
     Pins every field of the Theme contract. If any param drifts (e.g. slug
     typo'd in yaml), this fires.
     """
     reg = theme_registry.load_registry(REPO_ROOT)
-    theme = theme_registry.theme_for_scenario(reg, "general-meeting")
+    theme = theme_registry.theme_for_scenario(reg, "general-conference")
     assert theme is not None
     assert theme.slug == "meeting-classic"
     assert theme.data_theme == "mc"
@@ -127,7 +127,7 @@ def test_load_registry_raises_on_malformed_yaml(tmp_path):
     (yaml_dir / "scenarios.yaml").write_text(
         "version: 1\n"
         "scenarios:\n"
-        "  - path: general-meeting/\n"  # no `id` key
+        "  - path: general-conference/\n"  # no `id` key
         "    template: meeting-classic\n"
     )
     try:
@@ -188,14 +188,14 @@ def test_theme_source_dir_resolves_against_kb_root(tmp_path):
 
 
 def test_webinar_large_shares_meeting_classic_theme():
-    """webinar-large and general-meeting both point at meeting-classic.
+    """webinar-large and general-conference both point at meeting-classic.
 
     Pins that the registry doesn't artificially restrict 1 theme to 1
     scenario. Real-world: many scenarios will share themes (a "meeting"
     theme covers gallery, focus, sidebar variants).
     """
     reg = theme_registry.load_registry(REPO_ROOT)
-    a = theme_registry.theme_for_scenario(reg, "general-meeting")
+    a = theme_registry.theme_for_scenario(reg, "general-conference")
     b = theme_registry.theme_for_scenario(reg, "webinar-large")
     assert a is not None and b is not None
     assert a.slug == b.slug == "meeting-classic"

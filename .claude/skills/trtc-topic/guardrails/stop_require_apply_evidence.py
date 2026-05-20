@@ -58,7 +58,7 @@ def main() -> int:
         sys.stderr.write(
             f"[topic Stop hook] Cannot end turn: slice [{idx}] '{current_id}' "
             f"is in 'code_written' but apply.py has not run.\n"
-            f"Run: python3 .claude/skills/trtc/topic/scripts/apply.py "
+            f"Run: python3 .claude/skills/trtc-topic/scripts/apply.py "
             f"--slice {current_id}\n"
             f"Then ask the user to confirm before continuing.\n"
         )

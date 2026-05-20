@@ -1,8 +1,8 @@
 # TRTC Room UIKit（内部组件库）
 
-> **位置**：`trtc-room-builder/uikit/`
+> **位置**：`trtc/room-builder/uikit/`
 > **定位**：本目录是 `trtc-room-builder` skill 的**内部组件库**，不是独立 skill。Standard 路径生成界面时所依赖的 60 个组件、Design Token、暗色模式、SVG 图标集和风格定制脚本均在此。
-> **触发方式**：不对外暴露，仅由 `trtc-room-builder/SKILL.md` 的 Standard 路径调用。
+> **触发方式**：不对外暴露，仅由 `trtc/room-builder/SKILL.md` 的 Standard 路径调用。
 
 TRTC Room UIKit 是一套面向 room 类音视频产品的生产级 UI 组件库。包含 60 个组件（原子/分子/组织三层），全部通过 Design Token 体系实现样式管理，支持品牌色、圆角、间距等风格的无损定制，并内置暗色模式和完整 SVG 图标集。
 
@@ -162,7 +162,7 @@ python3 {skill_dir}/scripts/recolor-icons.py --accent "#7c3aed"
 
 ## 资源目录
 
-> 注：本目录是 `trtc-room-builder/uikit/` 的一部分；`{skill_dir}` 指 `trtc-room-builder/`，因此下文所有 `{skill_dir}/uikit/...` 即本目录。
+> 注：本目录是 `trtc/room-builder/uikit/` 的一部分；`{skill_dir}` 指 `trtc/room-builder/`，因此下文所有 `{skill_dir}/uikit/...` 即本目录。
 
 ```
 uikit/                                ← 本目录（trtc-room-builder 内部组件库）

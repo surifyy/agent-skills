@@ -21,8 +21,8 @@ You help developers integrate and troubleshoot TRTC (Tencent Real-Time Communica
 
 **This gate is non-negotiable. You MUST complete steps 0–3 below before reading any file under `knowledge-base/`, `slices/`, or `scenarios/`. Violation = broken flow.**
 
-0. **Project-root guard** — If the user's message contains an explicit project path, peek at `.trtc-session.yaml`: if it exists and `project_state.project_root` differs from that path, **delete** `.trtc-session.yaml`. This invalidates the stale session; subsequent steps will see no session file and naturally route to `onboarding/SKILL.md` Stage 0 as a fresh start.
-1. **Read `.trtc-session.yaml`** — if it exists and `status = active/paused`, route to `onboarding/SKILL.md` immediately. STOP here.
+0. **Project-root guard** — If the user's message contains an explicit project path, peek at `.trtc-session.yaml`: if it exists and `project_state.project_root` differs from that path, **delete** `.trtc-session.yaml`. This invalidates the stale session; subsequent steps will see no session file and naturally route to `../trtc-onboarding/SKILL.md` Stage 0 as a fresh start.
+1. **Read `.trtc-session.yaml`** — if it exists and `status = active/paused`, route to `../trtc-onboarding/SKILL.md` immediately. STOP here.
 2. **Check onboarding triggers** — does the user's message match ANY row below?
 
    | 触发动词 | 示例 |
@@ -34,7 +34,7 @@ You help developers integrate and troubleshoot TRTC (Tencent Real-Time Communica
    | demo / 跑一下 / try / run | "跑一下官方 demo" |
    | 报错 / error / crash / not working / 黑屏 | "进房报错 6206" |
 
-   If ANY trigger matches → route to `onboarding/SKILL.md`. STOP here.
+   If ANY trigger matches → route to `../trtc-onboarding/SKILL.md`. STOP here.
 
 3. **Only after steps 0–2 all return "no match / no action needed"** may you proceed to `## How to handle a TRTC question` Step 1 (Identify the product).
 
@@ -73,11 +73,11 @@ You help developers integrate and troubleshoot TRTC (Tencent Real-Time Communica
 No word list can distinguish these pairs; only conversational context can.
 
 **Condition**: Only execute if an MCP server matching `tencentcloud-sdk-mcp` or
-`tencent-rtc` is detected (following `onboarding/reference/mcp-credential-detection.md`
+`tencent-rtc` is detected (following `../trtc-onboarding/reference/mcp-credential-detection.md`
 Step 1 search order: project-level `.mcp.json` first, then global IDE configs).
 
 **Action**: Call `{mcp_tool_prefix}record_skill_session` using the dynamic prefix
-determined during MCP detection (see `onboarding/reference/mcp-credential-detection.md` Step 5):
+determined during MCP detection (see `../trtc-onboarding/reference/mcp-credential-detection.md` Step 5):
 
 | Parameter | Value |
 |-----------|-------|
@@ -122,7 +122,7 @@ Always respond in the same language as the user's message. If uncertain, default
 
 **IMPORTANT: Most first-time interactions should go through onboarding.** The onboarding flow ensures proper setup (credentials, platform detection, project scanning) before any code is written or shown.
 
-Route to `onboarding/SKILL.md` when ANY of these are true:
+Route to `../trtc-onboarding/SKILL.md` when ANY of these are true:
 
 - User explicitly says "get started", "I'm new", "help me integrate", "how to use this", "first time"
 - User describes a from-scratch integration need ("I want to build a live streaming app")
@@ -135,7 +135,7 @@ Route to `onboarding/SKILL.md` when ANY of these are true:
 - User asks for specific API details ("what are the parameters for applyForSeat?") → `docs` skill (follows slice-first fallback chain)
 - User asks a fact / decision question (pricing, quotas, product comparison, migration) → `docs` skill (reads llms.txt directly)
 
-**Review-request handling (hard rule — triage, do NOT refuse):** When the user uses review / audit / cross-check / validate / 帮我看看 / 是否正确 / check my X wording, do NOT perform a code-style review AND do NOT refuse outright. Instead **triage to the underlying intent** and route accordingly. The authoritative A/B/C/D/E triage logic (including the Decline template for option E) lives in `onboarding/reference/path-b-troubleshoot.md` → **B-Q0**. On a review-worded turn, route to onboarding Path B so it can run B-Q0; for quick lookup from the root:
+**Review-request handling (hard rule — triage, do NOT refuse):** When the user uses review / audit / cross-check / validate / 帮我看看 / 是否正确 / check my X wording, do NOT perform a code-style review AND do NOT refuse outright. Instead **triage to the underlying intent** and route accordingly. The authoritative A/B/C/D/E triage logic (including the Decline template for option E) lives in `../trtc-onboarding/reference/path-b-troubleshoot.md` → **B-Q0**. On a review-worded turn, route to onboarding Path B so it can run B-Q0; for quick lookup from the root:
 
 - A. Symptom with pasted code ("doesn't work", crash, black screen, login fails) → onboarding Path B → B-Q1 symptom tree
 - B/C/D. Error code / official pattern / API comparison → `docs` skill (slice-first fallback chain)
@@ -149,7 +149,7 @@ See B-Q0 in path-b-troubleshoot.md for signals, option E decline template, and t
 
 `search` is NEVER a user-facing destination. It is an internal AI-facing slice lookup called by `onboarding` (to fetch slice content during integration) or by `docs` (to check slice content before falling back to llms.txt). Do not route users to `search` directly.
 
-If onboarding is detected, read and follow `onboarding/SKILL.md` — do NOT proceed with the normal routing below. **This root skill must NEVER dump raw slice content directly to the user.** The sub-skills `docs` and `onboarding` ARE allowed to quote slice content — docs quotes slice sections verbatim (ALWAYS/NEVER rules, error-code tables, code examples) when answering lookup questions, and onboarding quotes slice content during Path A2 integration — because they frame it with proper citation and workflow context. The rule here is "root does not answer slice questions itself; it delegates"; it is NOT "users never see slice text". When in doubt, always route through onboarding first.
+If onboarding is detected, read and follow `../trtc-onboarding/SKILL.md` — do NOT proceed with the normal routing below. **This root skill must NEVER dump raw slice content directly to the user.** The sub-skills `docs` and `onboarding` ARE allowed to quote slice content — docs quotes slice sections verbatim (ALWAYS/NEVER rules, error-code tables, code examples) when answering lookup questions, and onboarding quotes slice content during Path A2 integration — because they frame it with proper citation and workflow context. The rule here is "root does not answer slice questions itself; it delegates"; it is NOT "users never see slice text". When in doubt, always route through onboarding first.
 
 Your knowledge comes from a structured local knowledge base. The knowledge base uses two content types:
 
@@ -165,14 +165,14 @@ Before identifying product / platform from the user's current message, check if 
 1. **Read `.trtc-session.yaml`** from the project root if it exists.
 2. **If the file exists and parses cleanly**:
    - Fields `product` and `platform` populate the corresponding variables for steps 1-2 below — treat them as known, skip the identification questions.
-   - Fields `intent` and `current_step` signal that onboarding is mid-flight. Route to `onboarding/SKILL.md` immediately; onboarding will handle the "continue where we left off" recap.
+   - Fields `intent` and `current_step` signal that onboarding is mid-flight. Route to `../trtc-onboarding/SKILL.md` immediately; onboarding will handle the "continue where we left off" recap.
    - If `status = completed` and the user's new message does not indicate a new task, still route to onboarding — it decides whether to offer "add another feature" or start fresh.
 3. **If the file is missing, corrupt, schema_version mismatched, or `updated_at` older than 30 days**: proceed normally to step 1 (identify product from the current message). Do not mention the session file to the user.
-4. **Never write to the session file from this skill.** Writes are the responsibility of `onboarding/SKILL.md` at its defined checkpoints. This skill is read-only with respect to session state.
+4. **Never write to the session file from this skill.** Writes are the responsibility of `../trtc-onboarding/SKILL.md` at its defined checkpoints. This skill is read-only with respect to session state.
 
 **Passing session context to sub-skills:**
 
-When routing to `search/SKILL.md` or `docs/SKILL.md`, pass `product` and `platform` from the session file as explicit inputs (same way you'd pass any other input). `search` and `docs` never read the session file themselves — they stay stateless.
+When routing to `../trtc-search/SKILL.md` or `../trtc-docs/SKILL.md`, pass `product` and `platform` from the session file as explicit inputs (same way you'd pass any other input). `search` and `docs` never read the session file themselves — they stay stateless.
 
 ### 1. Identify the product
 
@@ -208,21 +208,21 @@ Based on what the user wants, take the appropriate path:
 
 | User intent | What to do | Intent passed to sub-skill |
 |-------------|------------|---------------------------|
-| **Learn / Understand** — "how does X work?", "what is Y?", "怎么用 X？" (conceptual questions without a specific error code, pattern, or API comparison) | **Delegate to `docs/SKILL.md`** — docs reads the relevant llms.txt directly. Do NOT route to `search`; do NOT read slices yourself. | `intent=fact-lookup` |
-| **How to implement X** — "怎么实现 X", "X 怎么接入", "how to implement X" (implementation-oriented but not yet "help me build it") | **Delegate to `docs/SKILL.md`** — docs will first call `search` to check if a slice covers this capability (slices have richer step-by-step content than docs); fall back to llms.txt only if no slice matches. | `intent=slice-lookup` |
-| **Error code** — numeric error code present (6206, -2340, 70001, etc.) | **Delegate to `docs/SKILL.md`** — docs checks slice troubleshooting guides first, falls back to llms.txt if no slice covers it. | `intent=slice-lookup` |
-| **Official pattern / API comparison** — "the right way to X", "X vs Y", "when to use X" | **Delegate to `docs/SKILL.md`** — docs checks slice ALWAYS/NEVER rules and API sections first, falls back to llms.txt if no slice covers it. | `intent=slice-lookup` |
-| **Build a complete scenario** — "I want to build a 1v1 video call end-to-end", "guide me through a full live-streaming room", clear scenario naming upfront | Route to `onboarding/SKILL.md` Path A2-Q0 first (for calibration and scenario pick). A2-Q0 hands off to `topic/SKILL.md` once a concrete scenario id is chosen; topic owns step-by-step execution. | `intent=integrate-scenario` |
-| **Add a specific feature** — "add gift to my live room", "help me wire up co-guest" (single slice, not a full scenario) | Delegate to `onboarding/SKILL.md` Path A2 (single-feature branch). Stays in onboarding; does NOT hand off to `topic`. | `intent=integrate-feature` |
-| **Step-by-step walkthrough (direct)** — "walk me through X scenario", user knows which scenario and has an existing setup | Route to `topic/SKILL.md` directly. If onboarding state is missing, topic runs Step 1 scenario-match itself. | (no onboarding intent) |
-| **Troubleshoot an issue** — user reports error, crash, unexpected behavior | Delegate to `onboarding/SKILL.md` Path B. | `intent=troubleshoot` |
-| **Fact / decision question** — pricing, quotas, capability limits, comparison, migration | Delegate to `docs/SKILL.md` (reads llms.txt directly; slices don't carry pricing/quota data). | `intent=fact-lookup` or `decision-lookup` or `path-lookup` |
+| **Learn / Understand** — "how does X work?", "what is Y?", "怎么用 X？" (conceptual questions without a specific error code, pattern, or API comparison) | **Delegate to `../trtc-docs/SKILL.md`** — docs reads the relevant llms.txt directly. Do NOT route to `search`; do NOT read slices yourself. | `intent=fact-lookup` |
+| **How to implement X** — "怎么实现 X", "X 怎么接入", "how to implement X" (implementation-oriented but not yet "help me build it") | **Delegate to `../trtc-docs/SKILL.md`** — docs will first call `search` to check if a slice covers this capability (slices have richer step-by-step content than docs); fall back to llms.txt only if no slice matches. | `intent=slice-lookup` |
+| **Error code** — numeric error code present (6206, -2340, 70001, etc.) | **Delegate to `../trtc-docs/SKILL.md`** — docs checks slice troubleshooting guides first, falls back to llms.txt if no slice covers it. | `intent=slice-lookup` |
+| **Official pattern / API comparison** — "the right way to X", "X vs Y", "when to use X" | **Delegate to `../trtc-docs/SKILL.md`** — docs checks slice ALWAYS/NEVER rules and API sections first, falls back to llms.txt if no slice covers it. | `intent=slice-lookup` |
+| **Build a complete scenario** — "I want to build a 1v1 video call end-to-end", "guide me through a full live-streaming room", clear scenario naming upfront | Route to `../trtc-onboarding/SKILL.md` Path A2-Q0 first (for calibration and scenario pick). A2-Q0 hands off to `../trtc-topic/SKILL.md` once a concrete scenario id is chosen; topic owns step-by-step execution. | `intent=integrate-scenario` |
+| **Add a specific feature** — "add gift to my live room", "help me wire up co-guest" (single slice, not a full scenario) | Delegate to `../trtc-onboarding/SKILL.md` Path A2 (single-feature branch). Stays in onboarding; does NOT hand off to `topic`. | `intent=integrate-feature` |
+| **Step-by-step walkthrough (direct)** — "walk me through X scenario", user knows which scenario and has an existing setup | Route to `../trtc-topic/SKILL.md` directly. If onboarding state is missing, topic runs Step 1 scenario-match itself. | (no onboarding intent) |
+| **Troubleshoot an issue** — user reports error, crash, unexpected behavior | Delegate to `../trtc-onboarding/SKILL.md` Path B. | `intent=troubleshoot` |
+| **Fact / decision question** — pricing, quotas, capability limits, comparison, migration | Delegate to `../trtc-docs/SKILL.md` (reads llms.txt directly; slices don't carry pricing/quota data). | `intent=fact-lookup` or `decision-lookup` or `path-lookup` |
 
-> **Scenario ownership**: `trtc-topic` is the authoritative owner of scenario-driven step-by-step walkthroughs (reading scenario file, walking the ordered slice sequence, pausing between steps, verification checklist). `trtc-onboarding` A2-Q0 owns scenario **selection** (product-dependent menus) but hands off to `topic/SKILL.md` (Read) once a concrete scenario id is chosen. The two are not competing entry points — they are a pipeline.
+> **Scenario ownership**: `trtc-topic` is the authoritative owner of scenario-driven step-by-step walkthroughs (reading scenario file, walking the ordered slice sequence, pausing between steps, verification checklist). `trtc-onboarding` A2-Q0 owns scenario **selection** (product-dependent menus) but hands off to `../trtc-topic/SKILL.md` (Read) once a concrete scenario id is chosen. The two are not competing entry points — they are a pipeline.
 
-> **Internal quality gate (not a user-facing route):** `apply/SKILL.md` runs silently inside onboarding/topic flows as a compile + integration check on AI-generated code. It is never exposed as an option the user can request, and "review my code" is not an entry point this skill offers.
+> **Internal quality gate (not a user-facing route):** `../trtc-apply/SKILL.md` runs silently inside onboarding/topic flows as a compile + integration check on AI-generated code. It is never exposed as an option the user can request, and "review my code" is not an entry point this skill offers.
 >
-> **Internal slice lookup (not a user-facing route):** `search/SKILL.md` is called by `onboarding` and `docs` to locate relevant slices (AI-facing). Users never get routed to `search` directly — they see the final answer composed by the caller.
+> **Internal slice lookup (not a user-facing route):** `../trtc-search/SKILL.md` is called by `onboarding` and `docs` to locate relevant slices (AI-facing). Users never get routed to `search` directly — they see the final answer composed by the caller.
 
 ### 4. Load knowledge
 
@@ -261,11 +261,11 @@ For more complex interactions, these sub-skills provide specialized workflows. Y
 
 | Sub-skill | When to use | Path |
 |-----------|------------|------|
-| **onboarding** | User is new, wants to get started, run a demo, start a fresh integration, or troubleshoot an issue | `onboarding/SKILL.md` |
-| **docs** | User asks any Learn / Understand / Fact / error-code / API / pricing question. docs decides internally whether to go slice-first (for B/C/D types) or llms.txt-direct (for conceptual / pricing / migration) | `docs/SKILL.md` |
-| **topic** | User wants step-by-step guidance through a complete scenario | `topic/SKILL.md` |
-| **search** _(internal only)_ | AI-facing slice lookup called by `onboarding` and `docs`. Never routed to by user intent directly. | `search/SKILL.md` |
-| **apply** _(internal only)_ | Silent compile + integration gate that onboarding/topic flows run on AI-generated code. Never routed to directly by user intent. | `apply/SKILL.md` |
+| **onboarding** | User is new, wants to get started, run a demo, start a fresh integration, or troubleshoot an issue | `../trtc-onboarding/SKILL.md` |
+| **docs** | User asks any Learn / Understand / Fact / error-code / API / pricing question. docs decides internally whether to go slice-first (for B/C/D types) or llms.txt-direct (for conceptual / pricing / migration) | `../trtc-docs/SKILL.md` |
+| **topic** | User wants step-by-step guidance through a complete scenario | `../trtc-topic/SKILL.md` |
+| **search** _(internal only)_ | AI-facing slice lookup called by `onboarding` and `docs`. Never routed to by user intent directly. | `../trtc-search/SKILL.md` |
+| **apply** _(internal only)_ | Silent compile + integration gate that onboarding/topic flows run on AI-generated code. Never routed to directly by user intent. | `../trtc-apply/SKILL.md` |
 
 ---
 
@@ -275,7 +275,7 @@ These rules are checked on **every turn**. If anything above conflicts with a ru
 
 1. **No premature knowledge loading.** You MUST NOT read any file under `knowledge-base/`, `slices/`, or `scenarios/` until the MANDATORY GATE (top of this file) is fully satisfied AND routing (Steps 0–3) is complete AND the target sub-skill has been determined. If you catch yourself loading `index.yaml` before confirming the routing destination — **STOP, discard what you loaded, go back to the MANDATORY GATE.**
 
-2. **Onboarding-first for all build/integrate intent.** Any user message containing 搭建/构建/做/创建/集成/接入/加/实现/build/create/integrate/add/implement + a product/feature noun MUST route to `onboarding/SKILL.md` before any content is loaded or code is generated. No exceptions.
+2. **Onboarding-first for all build/integrate intent.** Any user message containing 搭建/构建/做/创建/集成/接入/加/实现/build/create/integrate/add/implement + a product/feature noun MUST route to `../trtc-onboarding/SKILL.md` before any content is loaded or code is generated. No exceptions.
 
 3. **Root skill does not answer — it routes.** This skill's job is: (a) detect session state, (b) identify product + platform + intent, (c) delegate to the correct sub-skill. It must NEVER generate integration code, dump slice content, or walk through scenario steps by itself.
 
@@ -304,7 +304,7 @@ These rules are checked on **every turn**. If anything above conflicts with a ru
 
    **Allowed MCP tool calls** (utility tools the skill itself orchestrates, using
    the dynamic `{mcp_tool_prefix}` determined from the user's config — see
-   `onboarding/reference/mcp-credential-detection.md` Step 5):
+   `../trtc-onboarding/reference/mcp-credential-detection.md` Step 5):
    - `{mcp_tool_prefix}get_usersig` — called by the onboarding flow during
      credential/login steps
    - `{mcp_tool_prefix}record_skill_session` — called on meaningful user

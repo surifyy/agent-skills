@@ -159,14 +159,14 @@ last_recap: "Live on iOS, adding gift to existing project, at step A2.3"
 | Skill | Reads session file? | Writes session file? |
 |-------|:---:|:---:|
 | `trtc/SKILL.md` (main router) | ✅ Step 0 | ❌ |
-| `onboarding/SKILL.md` (this file) | ✅ every turn | ✅ at checkpoints above |
-| `search/SKILL.md` | ❌ stateless | ❌ |
-| `docs/SKILL.md` | ❌ stateless | ❌ |
-| `apply/SKILL.md` | ❌ independent input | ❌ |
-| `topic/SKILL.md` | ✅ on every Skill-tool invocation (reads `current_step`, `scenario`, `confirmed_plan`, `enhancement_level`, `auto_advance_policy`, `ui_mode`, `project_state`) | ✅ writes `slice_queue`, `current_slice_index`, `current_slice_state` (state machine fields) |
-| `room-builder/SKILL.md` | ✅ when invoked by topic in `ui_mode = full-ui` (reads `scenario`, `enhancement_level`) | ❌ |
+| `../trtc-onboarding/SKILL.md` (this file) | ✅ every turn | ✅ at checkpoints above |
+| `../trtc-search/SKILL.md` | ❌ stateless | ❌ |
+| `../trtc-docs/SKILL.md` | ❌ stateless | ❌ |
+| `../trtc-apply/SKILL.md` | ❌ independent input | ❌ |
+| `../trtc-topic/SKILL.md` | ✅ on every Skill-tool invocation (reads `current_step`, `scenario`, `confirmed_plan`, `enhancement_level`, `auto_advance_policy`, `ui_mode`, `project_state`) | ✅ writes `slice_queue`, `current_slice_index`, `current_slice_state` (state machine fields) |
+| `../trtc/room-builder/SKILL.md` | ✅ when invoked by topic in `ui_mode = full-ui` (reads `scenario`, `enhancement_level`) | ❌ |
 
-**How `topic` is invoked**: by `onboarding` reading `topic/SKILL.md` after A2-Q0 selects a concrete scenario; or directly by the router when the user explicitly asks for a step-by-step walkthrough. (`trtc-topic` is not registered as a top-level Skill — it lives nested under `trtc/topic/`, so the Skill tool can't resolve it today. Plain Read is the only working handoff. Hooks + the on-disk state machine carry the topic constraints across the handoff regardless.)
+**How `topic` is invoked**: by `onboarding` reading `../trtc-topic/SKILL.md` after A2-Q0 selects a concrete scenario; or directly by the router when the user explicitly asks for a step-by-step walkthrough. Plain Read is the current handoff convention (the §3.5 cross-skill `Skill()` tool handoff was walked back); hooks + the on-disk state machine carry the topic constraints across the handoff regardless.
 
 Skills not listed above receive `product` / `platform` / other inputs explicitly from the caller. Do not synthesize or read the session file from them.
 
@@ -320,7 +320,7 @@ Question text: "您感兴趣的产品是哪个？" (English equivalent: "Which p
 **Free-text handling (option 6):**
 
 1. Read `knowledge-base/index.yaml`.
-2. Tokenize the user's free text. Do Chinese↔English bridging yourself for common terms; fall back to `search/SKILL.md`'s "Keyword Hints" table (~8 rows of non-intuitive SDK-proprietary mappings like 互踢 → kick-offline, PK → battle, 黑屏 → setLiveID) only when the user uses one of those colloquial terms. Match the resulting keywords against every slice's `tags` and `description`, plus every scenario's `name` and `description`.
+2. Tokenize the user's free text. Do Chinese↔English bridging yourself for common terms; fall back to `../trtc-search/SKILL.md`'s "Keyword Hints" table (~8 rows of non-intuitive SDK-proprietary mappings like 互踢 → kick-offline, PK → battle, 黑屏 → setLiveID) only when the user uses one of those colloquial terms. Match the resulting keywords against every slice's `tags` and `description`, plus every scenario's `name` and `description`.
 3. Rank matches by tag intersection count (ties broken by product fit).
 4. Take the top scenario (if any scenario scored ≥ 2 tag hits) and the top slice, resolve them to a product.
 5. Recommend back:
@@ -377,7 +377,7 @@ Each path opens with a one-sentence recap of the current session state and then 
 | Path | Trigger (`intent`) | Summary | Reference file to load |
 |------|-----------------------------------|---------|----------------------|
 | **A1** Demo Quickstart | `demo` | Executor mode — clone the official demo into a separate directory, configure credentials, run it. Do NOT touch the user's project. | `reference/path-a1-demo.md` |
-| **A2** Direct Integration | `integrate-scenario`, `integrate-feature` | Co-developer mode — scan the project, write code following slice-defined best practices. Every step silently runs through `apply/SKILL.md` as an internal quality gate before being declared done. Users never see apply. | `reference/path-a2-integrate.md` |
+| **A2** Direct Integration | `integrate-scenario`, `integrate-feature` | Co-developer mode — scan the project, write code following slice-defined best practices. Every step silently runs through `../trtc-apply/SKILL.md` as an internal quality gate before being declared done. Users never see apply. | `reference/path-a2-integrate.md` |
 | **B** Troubleshooting | `troubleshoot`, or review-intent triage triggered by Hard rule #1 | Debugger mode — walk the diagnostic tree, find root cause, fix. Starts with B-Q0 triage (A/B/C/D/E intent classification) to route review-wording users correctly. | `reference/path-b-troubleshoot.md` |
 | **C** Feature Expansion | `expand` | Advisor + Implementer — auto-detect existing TRTC setup, recommend the next feature, then delegate step-by-step implementation to Path A2's flow. | `reference/path-c-expand.md` |
 
@@ -398,8 +398,8 @@ Do not actively ask "anything else?" after a path completes. End the reply natur
 
 **Docs fallback** is the only escape hatch in Stage 3, and it triggers reactively, not proactively:
 
-- If the user comes back with a follow-up question that doesn't match any of the four paths' patterns (no integration verb, no error signal, no "add X" request), AND the knowledge base has no matching slice for the question, route to `docs/SKILL.md`.
-- If the user explicitly asks a fact / decision question mid-path ("btw, how much does this cost?", "does this support 500 people?"), pause by saving `current_step` to `.trtc-session.yaml` and hand off to `docs/SKILL.md`. Return to the saved step when docs finishes.
+- If the user comes back with a follow-up question that doesn't match any of the four paths' patterns (no integration verb, no error signal, no "add X" request), AND the knowledge base has no matching slice for the question, route to `../trtc-docs/SKILL.md`.
+- If the user explicitly asks a fact / decision question mid-path ("btw, how much does this cost?", "does this support 500 people?"), pause by saving `current_step` to `.trtc-session.yaml` and hand off to `../trtc-docs/SKILL.md`. Return to the saved step when docs finishes.
 
 Do not present a "what would you like next?" menu after every path. The user will ask if they need more.
 
@@ -460,25 +460,25 @@ These rules are checked **on every turn**, regardless of which stage or path you
 
 5. **One known field per turn.** Never re-ask for information the user has already provided (product, platform, intent, scenario, project_state). Check `.trtc-session.yaml` first.
 
-6. **No dumping raw slice content.** Always go through onboarding flow first. If the user's intent is clearly conceptual/learning ("how does X work"), hand off to `docs/SKILL.md` rather than paraphrasing slices yourself. The `trtc-docs` skill will decide slice-first (for error codes / official patterns / API comparisons) vs llms.txt-direct (for conceptual explanations / pricing / migration).
+6. **No dumping raw slice content.** Always go through onboarding flow first. If the user's intent is clearly conceptual/learning ("how does X work"), hand off to `../trtc-docs/SKILL.md` rather than paraphrasing slices yourself. The `trtc-docs` skill will decide slice-first (for error codes / official patterns / API comparisons) vs llms.txt-direct (for conceptual explanations / pricing / migration).
 
 7. **Scenario handoff 是不可跳过的阻塞门。** 当 `intent = integrate-scenario` 且 A2-Q0 已选定具体 scenario 时：
 
-   - MUST 通过 Read 读 `.claude/skills/trtc/topic/SKILL.md`，按 topic 的流程逐步执行。topic 的真正约束由 PreToolUse / Stop hooks + on-disk state machine 物理强制（见 `topic/scripts/STATE-MACHINE-GUIDE.md`），跟 SKILL.md 怎么进入上下文无关——所以读进来就够。
+   - MUST 通过 Read 读 `.claude/skills/trtc-topic/SKILL.md`，按 topic 的流程逐步执行。topic 的真正约束由 PreToolUse / Stop hooks + on-disk state machine 物理强制（见 `../trtc-topic/scripts/STATE-MACHINE-GUIDE.md`），跟 SKILL.md 怎么进入上下文无关——所以读进来就够。
    - MUST NOT 在 onboarding 内直接生成任何业务代码文件（.vue / .ts / .swift / .kt / .dart 等）。
    - MUST NOT 一次性输出完整项目代码——逐步执行、逐步 apply 是 topic 的核心设计，不可绕过。
    - MUST 在 handoff 前将 `current_step = 'topic-handoff'` 和 `scenario = <chosen-id>` 写入 `.trtc-session.yaml`。
 
    **Self-check 信号（每次准备写文件前执行）：**
    如果你的下一个动作是 Write / Edit 一个业务代码文件，而以下任一条件为真——你正在违规，立即 STOP：
-   - `.trtc-session.yaml` 中 `current_step` 不是 `'topic-handoff'` 且 `topic/SKILL.md` 从未被 Read 过
+   - `.trtc-session.yaml` 中 `current_step` 不是 `'topic-handoff'` 且 `../trtc-topic/SKILL.md` 从未被 Read 过
    - `intent = integrate-scenario` 但你仍在 onboarding skill 内执行
    - 你正在一次性生成超过 1 个 slice 对应的代码（topic 是逐步的）
 
    **违规时的强制动作：**
    1. STOP 当前生成
    2. 不输出已生成的代码
-   3. 回到 handoff 点，**Read `topic/SKILL.md`**，按 topic 流程逐步执行
+   3. 回到 handoff 点，**Read `../trtc-topic/SKILL.md`**，按 topic 流程逐步执行
    4. 不向用户解释内部流程细节——只需自然地开始 topic 的 Step 1/2/3
 
    **唯一豁免：** `intent = integrate-feature`（单功能集成）不走 topic，仍在 onboarding A2 内逐步执行并调用 apply。此规则仅约束 scenario-driven 流程。
@@ -499,5 +499,5 @@ These rules are checked **on every turn**, regardless of which stage or path you
    Do NOT call any MCP documentation tools (`get_callkit_api`, `get_faq`,
    `get_native_*`, `get_web_*`, `present_framework_choice`) regardless of prefix.
    These bypass the skill's structured knowledge base and flow. If you need
-   documentation content during onboarding, delegate to `docs/SKILL.md` which
+   documentation content during onboarding, delegate to `../trtc-docs/SKILL.md` which
    uses the knowledge base and llms.txt system.

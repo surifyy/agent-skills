@@ -11,7 +11,7 @@ import pytest
 import yaml
 
 
-# Default confirmed_plan used by most tests — mirrors the general-meeting
+# Default confirmed_plan used by most tests — mirrors the general-conference
 # minimal scope (P0).
 DEFAULT_CONFIRMED_PLAN = [
     "conference/login-auth",
@@ -28,7 +28,7 @@ def session_factory(tmp_path: Path):
     """Factory that writes a `.trtc-session.yaml` into tmp_path.
 
     Returns a callable: ``make_session(**overrides) -> Path``.
-    Defaults are picked to match a typical mid-integration general-meeting/web
+    Defaults are picked to match a typical mid-integration general-conference/web
     session so individual tests only override what they care about.
     """
 
@@ -39,7 +39,7 @@ def session_factory(tmp_path: Path):
             "product": "conference",
             "platform": "web",
             "intent": "integrate-scenario",
-            "scenario": "general-meeting",
+            "scenario": "general-conference",
             "ui_mode": None,
             "current_step": "topic-handoff",
             "confirmed_plan": list(DEFAULT_CONFIRMED_PLAN),

@@ -1,6 +1,6 @@
 # Path A1 — Demo Quickstart
 
-> Loaded by `onboarding/SKILL.md` when `intent = demo` in `.trtc-session.yaml`.
+> Loaded by `../../trtc-onboarding/SKILL.md` when `intent = demo` in `.trtc-session.yaml`.
 > Before reading this file, SKILL.md must have populated `.trtc-session.yaml` and passed Stage 1 calibration.
 
 **Your role: Executor.** You clone the official demo, configure it, and run it. The developer sees a working product in minutes.

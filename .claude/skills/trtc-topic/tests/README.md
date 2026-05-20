@@ -13,17 +13,17 @@
 
 ```bash
 # 在 repo 根
-python3 -m pytest .claude/skills/trtc/topic/tests/
+python3 -m pytest .claude/skills/trtc-topic/tests/
 
 # 看详细
-python3 -m pytest .claude/skills/trtc/topic/tests/ -v
+python3 -m pytest .claude/skills/trtc-topic/tests/ -v
 
 # 单文件
-python3 -m pytest .claude/skills/trtc/topic/tests/test_state_machine.py -v
+python3 -m pytest .claude/skills/trtc-topic/tests/test_state_machine.py -v
 
 # 单 case
 python3 -m pytest \
-  .claude/skills/trtc/topic/tests/test_apply_cli.py::TestAutoAdvanceOnPass::test_pause_on_failure_pass_advances_to_next_slice -v
+  .claude/skills/trtc-topic/tests/test_apply_cli.py::TestAutoAdvanceOnPass::test_pause_on_failure_pass_advances_to_next_slice -v
 ```
 
 依赖：pytest 8+ 与 PyYAML（项目已有）。
@@ -43,7 +43,7 @@ python3 -m pytest \
 ## Fixtures（`conftest.py`）
 
 - `session_factory(**overrides)` — 在 `tmp_path` 写一个 `.trtc-session.yaml`。
-  默认仿真"general-meeting / web 集成中"的状态。`overrides` 可换 `confirmed_plan`、
+  默认仿真"general-conference / web 集成中"的状态。`overrides` 可换 `confirmed_plan`、
   `auto_advance_policy` 等任意根级字段。
 - `project_factory()` — 在 `tmp_path/user-project/src/` 造空项目骨架，
   测试可以往里写 .vue / .ts。

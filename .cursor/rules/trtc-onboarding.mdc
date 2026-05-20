@@ -334,10 +334,10 @@ Each path opens with a one-sentence recap of the current session state and then 
 
 | Path | Trigger (`intent`) | Summary | Reference file to load |
 |------|-----------------------------------|---------|----------------------|
-| **A1** Demo Quickstart | `demo` | Executor mode — clone the official demo into a separate directory, configure credentials, run it. Do NOT touch the user's project. | `.claude/skills/trtc/onboarding/reference/path-a1-demo.md` |
-| **A2** Direct Integration | `integrate-scenario`, `integrate-feature` | Co-developer mode — scan the project, write code following slice-defined best practices. Every step silently runs through `trtc-apply.mdc` as an internal quality gate before being declared done. Users never see apply. | `.claude/skills/trtc/onboarding/reference/path-a2-integrate.md` |
-| **B** Troubleshooting | `troubleshoot`, or review-intent triage triggered by Hard rule #1 | Debugger mode — walk the diagnostic tree, find root cause, fix. Starts with B-Q0 triage (A/B/C/D/E intent classification) to route review-wording users correctly. | `.claude/skills/trtc/onboarding/reference/path-b-troubleshoot.md` |
-| **C** Feature Expansion | `expand` | Advisor + Implementer — auto-detect existing TRTC setup, recommend the next feature, then delegate step-by-step implementation to Path A2's flow. | `.claude/skills/trtc/onboarding/reference/path-c-expand.md` |
+| **A1** Demo Quickstart | `demo` | Executor mode — clone the official demo into a separate directory, configure credentials, run it. Do NOT touch the user's project. | `.claude/skills/trtc-onboarding/reference/path-a1-demo.md` |
+| **A2** Direct Integration | `integrate-scenario`, `integrate-feature` | Co-developer mode — scan the project, write code following slice-defined best practices. Every step silently runs through `trtc-apply.mdc` as an internal quality gate before being declared done. Users never see apply. | `.claude/skills/trtc-onboarding/reference/path-a2-integrate.md` |
+| **B** Troubleshooting | `troubleshoot`, or review-intent triage triggered by Hard rule #1 | Debugger mode — walk the diagnostic tree, find root cause, fix. Starts with B-Q0 triage (A/B/C/D/E intent classification) to route review-wording users correctly. | `.claude/skills/trtc-onboarding/reference/path-b-troubleshoot.md` |
+| **C** Feature Expansion | `expand` | Advisor + Implementer — auto-detect existing TRTC setup, recommend the next feature, then delegate step-by-step implementation to Path A2's flow. | `.claude/skills/trtc-onboarding/reference/path-c-expand.md` |
 
 **How to use this table**:
 

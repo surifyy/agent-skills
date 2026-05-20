@@ -162,7 +162,7 @@ Fill the Response Contract based on Step 2-4 results:
 | product=null AND only fuzzy hits spanning ≥ 2 products | `ambiguous_product` | empty | `ambiguous_candidates: [...]`, `reason: "..."` |
 | Strategies exhausted, nothing relevant at any confidence | `no_match` | empty | `reason: "..."` (be specific — error code not found / no tag overlap / etc.) |
 
-> **Display rules live with the caller**, not with search. search only reports `file_paths_read`; it does not dictate how the caller quotes code, when to include snippets, or how to render confidence. See `docs/SKILL.md` Step 3 and `onboarding/reference/path-a2-integrate.md` slice-loading block for those rules.
+> **Display rules live with the caller**, not with search. search only reports `file_paths_read`; it does not dictate how the caller quotes code, when to include snippets, or how to render confidence. See `../trtc-docs/SKILL.md` Step 3 and `onboarding/reference/path-a2-integrate.md` slice-loading block for those rules.
 
 ---
 

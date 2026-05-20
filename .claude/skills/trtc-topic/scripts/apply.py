@@ -59,9 +59,9 @@ sys.path.insert(0, str(LIB_DIR))
 import state_machine  # noqa: E402
 sys.path.pop(0)
 
-# rule_parser lives under apply/guardrails/apply_lib (sibling skill).
-# HERE = .claude/skills/trtc/topic/scripts → ../.. = .claude/skills/trtc
-_APPLY_GUARDRAILS = HERE.parent.parent / "apply" / "guardrails"
+# rule_parser lives under trtc-apply/guardrails/apply_lib (sibling skill).
+# HERE = .claude/skills/trtc-topic/scripts → parent.parent = .claude/skills/
+_APPLY_GUARDRAILS = HERE.parent.parent / "trtc-apply" / "guardrails"
 sys.path.insert(0, str(_APPLY_GUARDRAILS))
 from apply_lib.rule_parser import extract_rules_from_slice  # noqa: E402
 sys.path.pop(0)
@@ -292,7 +292,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Resolve repo root for slice file lookup. We use the worktree containing
     # this script as the source of slice files (knowledge-base lives there).
-    repo_root = HERE.parents[4]
+    repo_root = HERE.parents[3]
 
     # Resolve project root.
     session_data = _load_session(session_path)

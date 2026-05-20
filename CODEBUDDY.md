@@ -15,7 +15,7 @@ This repository uses a three-layer architecture:
 
 **Before responding to any TRTC question, you MUST read the relevant skill file.** Do not rely on training-data memory to simulate skill behavior.
 
-- On every new TRTC question: read `.claude/skills/trtc/SKILL.md` first (the router), then read the target skill file (e.g. `.claude/skills/trtc/onboarding/SKILL.md`).
+- On every new TRTC question: read `.claude/skills/trtc/SKILL.md` first (the router), then read the target skill file (e.g. `.claude/skills/trtc-onboarding/SKILL.md`).
 - On every knowledge-base lookup: read `knowledge-base/index.yaml` first, then read the matched slice file.
 - **Before outputting any slice ID** (e.g. `conference/login-auth`): read `knowledge-base/index.yaml` and confirm the ID appears in the `slices` array. Never output a slice ID you haven't verified in the index — invented IDs are silent errors that break downstream integration steps.
 - "0 tool calls" on a TRTC question is always wrong. If you find yourself about to answer without reading a file, stop and read it first.
@@ -29,7 +29,7 @@ Before identifying product / platform, check if an onboarding session is already
 1. Read `.trtc-session.yaml` from the project root if it exists.
 2. If it exists and parses cleanly:
    - `product` and `platform` fields → treat as known, skip identification questions.
-   - `intent` and `current_step` fields → onboarding is mid-flight. Follow `.claude/skills/trtc/onboarding/SKILL.md` immediately; it handles "continue where we left off".
+   - `intent` and `current_step` fields → onboarding is mid-flight. Follow `.claude/skills/trtc-onboarding/SKILL.md` immediately; it handles "continue where we left off".
    - `status = completed` → still route to onboarding; it decides whether to offer "add another feature" or start fresh.
 3. If missing, corrupt, schema_version mismatched, or `updated_at` older than 30 days → proceed normally to Step 1. Do not mention the session file to the user.
 4. Never write to the session file yourself. Writes belong to `onboarding/SKILL.md` at its defined checkpoints.
@@ -68,14 +68,14 @@ If the user doesn't specify and it matters for the answer, ask. Conceptual quest
 
 | User intent | Skill to follow |
 |-------------|----------------|
-| **"get started" / "help me integrate" / "I'm new"** | `.claude/skills/trtc/onboarding/SKILL.md` |
-| **"I want to ADD / BUILD / IMPLEMENT X"** (feature or demo) | `.claude/skills/trtc/onboarding/SKILL.md` Path A2 — **never dump slice content directly** |
-| **"从零开始" / "帮我接入" / "try the demo"** | `.claude/skills/trtc/onboarding/SKILL.md` |
-| **"walk me through X" / "step by step" / full scenario** | `.claude/skills/trtc/topic/SKILL.md` (onboarding A2-Q0 hands off here once a scenario id is chosen) |
-| **"how does X work?" / conceptual question** | `.claude/skills/trtc/docs/SKILL.md` |
-| **error code / API comparison / official pattern** | `.claude/skills/trtc/docs/SKILL.md` (slice-first fallback chain) |
-| **pricing / quotas / migration / product comparison** | `.claude/skills/trtc/docs/SKILL.md` |
-| **crash / error / "not working" / "黑屏"** | `.claude/skills/trtc/onboarding/SKILL.md` Path B (troubleshooting) |
+| **"get started" / "help me integrate" / "I'm new"** | `.claude/skills/trtc-onboarding/SKILL.md` |
+| **"I want to ADD / BUILD / IMPLEMENT X"** (feature or demo) | `.claude/skills/trtc-onboarding/SKILL.md` Path A2 — **never dump slice content directly** |
+| **"从零开始" / "帮我接入" / "try the demo"** | `.claude/skills/trtc-onboarding/SKILL.md` |
+| **"walk me through X" / "step by step" / full scenario** | `.claude/skills/trtc-topic/SKILL.md` (onboarding A2-Q0 hands off here once a scenario id is chosen) |
+| **"how does X work?" / conceptual question** | `.claude/skills/trtc-docs/SKILL.md` |
+| **error code / API comparison / official pattern** | `.claude/skills/trtc-docs/SKILL.md` (slice-first fallback chain) |
+| **pricing / quotas / migration / product comparison** | `.claude/skills/trtc-docs/SKILL.md` |
+| **crash / error / "not working" / "黑屏"** | `.claude/skills/trtc-onboarding/SKILL.md` Path B (troubleshooting) |
 
 **`search/SKILL.md` is NEVER a user-facing destination.** It is called internally by `onboarding` and `docs` to locate slices. Do not route users there directly.
 

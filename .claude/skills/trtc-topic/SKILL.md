@@ -21,7 +21,7 @@ Think of yourself as a pair programmer who knows TRTC well. You don't dump every
 
 This skill is reached two ways. Both produce the same in-skill flow once a scenario id is resolved.
 
-1. **Handoff from `onboarding/SKILL.md` Path A2-Q0** — the normal path. Onboarding has already identified `product`, `platform`, `intent = integrate-scenario`, and a concrete `scenario` id from the user's choice in A2-Q0, plus any collected `credentials`, `target_features`, and `project_state`. These are passed via `.trtc-session.yaml` (read it at skill entry) and should be treated as known — do NOT re-ask. Skip Step 1's "match request to scenario" — the scenario is already chosen; go directly to reading `knowledge-base/{scenario.file}`.
+1. **Handoff from `../trtc-onboarding/SKILL.md` Path A2-Q0** — the normal path. Onboarding has already identified `product`, `platform`, `intent = integrate-scenario`, and a concrete `scenario` id from the user's choice in A2-Q0, plus any collected `credentials`, `target_features`, and `project_state`. These are passed via `.trtc-session.yaml` (read it at skill entry) and should be treated as known — do NOT re-ask. Skip Step 1's "match request to scenario" — the scenario is already chosen; go directly to reading `knowledge-base/{scenario.file}`.
 2. **Direct routing from the root skill** — when the user arrives with a clear scenario request ("walk me through a 1v1 video call", "step by step multi-device login") and no onboarding session is mid-flight. Run Step 1 to match the request to a scenario.
 
 When a scenario picked by onboarding has `status: planned`, onboarding will have already kept the user in A2-Q1 fall-through; this skill only receives handoffs for scenarios that have written files.
@@ -79,7 +79,7 @@ Ask the user to confirm they're ready before diving into implementation. This pr
 > **Operator's manual** (the five Bash commands, the state diagram, what the
 > harness enforces, auto-advance policy, and the per-slice rhythm):
 >
-> → Read **[`topic/scripts/STATE-MACHINE-GUIDE.md`](scripts/STATE-MACHINE-GUIDE.md)** before starting Step 3 of any new scenario.
+> → Read **[`../trtc-topic/scripts/STATE-MACHINE-GUIDE.md`](scripts/STATE-MACHINE-GUIDE.md)** before starting Step 3 of any new scenario.
 >
 > Quick recap (don't rely on memory — open the guide):
 > - 5 Bash commands: `init_slice_queue.py`, `next_slice.py status`, `next_slice.py advance <transition>`, `apply.py --slice <id>`
@@ -105,7 +105,7 @@ For each step in the (filtered) scenario sequence:
 
    - **G1: Copy from slices, don't improvise** — Always read the platform-specific slice file first and use its code examples as the foundation. Copy import statements, API signatures, and type annotations verbatim from the slice. Do NOT substitute SDK names or parameter types from memory.
    - **G2: No invented APIs** — Every class, method, property, and enum case you reference must either (a) come from the knowledge base slice, or (b) be standard platform API you're certain exists. When unsure, use a simpler but definitely-correct approach rather than guessing.
-   - **G3: Self-validate before presenting** — Before showing or writing code, call `apply/SKILL.md` per the contract described in **"Calling apply"** below. Snippet-only answers can use `mode: quick` (5-point checklist). Code that will be written into the user's project MUST go through `mode: full` (constraint compliance → compilation → integration safety).
+   - **G3: Self-validate before presenting** — Before showing or writing code, call `../trtc-apply/SKILL.md` per the contract described in **"Calling apply"** below. Snippet-only answers can use `mode: quick` (5-point checklist). Code that will be written into the user's project MUST go through `mode: full` (constraint compliance → compilation → integration safety).
    - **G4: Modular structure** — Break implementations into separate files with clear single responsibilities. Don't put all logic into one massive file. Each file should be focused and manageable.
    - **G5: Compilable by default** — Generated code must be compilable when added to a project with the correct SDK installed. Include all necessary imports, type declarations, and protocol conformances. If something can't compile without additional context, note it with a `// TODO:` comment explaining what's needed.
 
@@ -160,7 +160,7 @@ and composable-bindings mapping — it is not limited to Conference.
 Look up the current scenario in `region-manifest.yaml`. If a theme entry exists
 with `regions[]` for the target scenario:
 - Each child component's visual spec comes from the **individual region file**
-  at `room-builder/references/{base_path}/{file}` — NOT the full index.html.
+  at `../trtc/room-builder/references/{base_path}/{file}` — NOT the full index.html.
 - When generating `TopBar.vue`, Read ONLY `regions/meeting-classic/topbar.html`.
 - When generating `BottomBar.vue`, Read ONLY `regions/meeting-classic/bottombar.html`.
 - And so on for each component listed in the manifest.
@@ -267,7 +267,7 @@ When splitting into child components, each child MUST directly import and call t
 **Apply gate — MANDATORY for `full-ui` (same weight as G3, not optional):**
 
 After generating the complete SFC — **before writing any file to disk** — call
-`apply/SKILL.md`. `full-ui` mode generates composite code covering multiple
+`../trtc-apply/SKILL.md`. `full-ui` mode generates composite code covering multiple
 slices at once; construct the apply request as follows:
 
 ```yaml
@@ -368,7 +368,7 @@ If the user hits a problem mid-scenario:
 
 ### Calling apply (internal quality gate)
 
-Apply is invoked per step (not per file, not per session). The full input/output contract — including request fields, mode selection, response shape, and `retry_hint` semantics — lives in [`apply/SKILL.md` Phase 0](../apply/SKILL.md). **Read it once at skill entry; do not paraphrase its contract here.** This section only documents topic-side behaviour around those calls.
+Apply is invoked per step (not per file, not per session). The full input/output contract — including request fields, mode selection, response shape, and `retry_hint` semantics — lives in [`../trtc-apply/SKILL.md` Phase 0](../apply/SKILL.md). **Read it once at skill entry; do not paraphrase its contract here.** This section only documents topic-side behaviour around those calls.
 
 **Caller behaviour rules:**
 
