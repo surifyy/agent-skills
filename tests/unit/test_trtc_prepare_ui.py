@@ -16,10 +16,10 @@ VERIFY_SCRIPT = REPO_ROOT / ".claude/skills/trtc/room-builder/guardrails" / "trt
 THEME_SOURCE = REPO_ROOT / ".claude" / "skills" / "trtc" / "room-builder" / "uikit" / "assets" / "themes" / "meeting-classic"
 
 
-def _write_session(tmp_path, *, ui_mode, project_root=None, scenario="general-meeting"):
+def _write_session(tmp_path, *, ui_mode, project_root=None, scenario="general-conference"):
     """Write a minimal .trtc-session.yaml; return its path.
 
-    `scenario` defaults to general-meeting (registered with meeting-classic
+    `scenario` defaults to general-conference (registered with meeting-classic
     theme). All pre-registry tests assumed this implicitly; we now write it
     explicitly so in_scope() — which now requires a registered scenario —
     keeps returning True for them.
@@ -45,7 +45,7 @@ def _write_session(tmp_path, *, ui_mode, project_root=None, scenario="general-me
 
 
 def _write_session_custom(tmp_path, *, product="conference", intent="integrate-scenario",
-                          ui_mode="full-ui", project_root=None, scenario="general-meeting"):
+                          ui_mode="full-ui", project_root=None, scenario="general-conference"):
     """Like _write_session but with explicit product/intent (for scope-gate tests)."""
     session_path = tmp_path / ".trtc-session.yaml"
     lines = [
@@ -414,7 +414,7 @@ def test_prepare_scope_gate_skips_non_integrate_intent(tmp_path):
 #
 # These tests use a tmp scenarios.yaml + tmp theme dir to prove that NOTHING
 # in trtc_prepare_ui.py is still hardcoded to meeting-classic. Earlier tests
-# happen to use general-meeting (which IS meeting-classic), so they couldn't
+# happen to use general-conference (which IS meeting-classic), so they couldn't
 # distinguish "registry lookup works" from "meeting-classic happens to be
 # hardcoded everywhere". These do.
 

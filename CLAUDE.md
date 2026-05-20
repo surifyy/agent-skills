@@ -7,12 +7,12 @@
 ```
 ai-integration/
 ├── CLAUDE.md                          # 本文件 — 项目级 AI 指令
-├── .claude/skills/trtc/               # Claude Code Skills
-│   ├── SKILL.md                       # 路由 skill（入口）
-│   ├── onboarding/SKILL.md            # 新手引导（分流 → demo/集成/排障/扩展）
-│   ├── search/SKILL.md                # 搜索 slice（原子能力）和 scenario（集成场景）
-│   ├── apply/SKILL.md                 # 应用/校验代码
-│   └── topic/SKILL.md                 # 场景引导
+├── .claude/skills/                    # Claude Code Skills（每个子 skill 都是顶层条目，便于 Skill 工具发现）
+│   ├── trtc/SKILL.md                  # 路由 skill（入口）
+│   ├── trtc-onboarding/SKILL.md       # 新手引导（分流 → demo/集成/排障/扩展）
+│   ├── trtc-search/SKILL.md           # 搜索 slice（原子能力）和 scenario（集成场景）
+│   ├── trtc-apply/SKILL.md            # 应用/校验代码
+│   └── trtc-topic/SKILL.md            # 场景引导
 ├── llms.txt                           # llms.txt 内容规范 + 初始模板（顶层产品索引）
 ├── llms/                              # llms.txt 子文件模板（最终由文档站构建流程自动生成）
 │   ├── {product}.txt                  # 产品概述 + 平台链接（如 live.txt, conference.txt）

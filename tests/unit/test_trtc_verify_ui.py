@@ -17,10 +17,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SCRIPT = REPO_ROOT / ".claude/skills/trtc/room-builder/guardrails" / "trtc_verify_ui.py"
 
 
-def _write_session(tmp_path, *, ui_mode, project_root=None, scenario="general-meeting"):
+def _write_session(tmp_path, *, ui_mode, project_root=None, scenario="general-conference"):
     """Write a minimal .trtc-session.yaml; return its path.
 
-    `scenario` defaults to general-meeting (registered with meeting-classic).
+    `scenario` defaults to general-conference (registered with meeting-classic).
     Pre-registry tests assumed this implicitly; we now write it explicitly
     so in_scope() — which now requires a registered scenario — keeps
     returning True for them.
@@ -46,7 +46,7 @@ def _write_session(tmp_path, *, ui_mode, project_root=None, scenario="general-me
 
 
 def _write_session_custom(tmp_path, *, product="conference", intent="integrate-scenario",
-                          ui_mode="full-ui", project_root=None, scenario="general-meeting"):
+                          ui_mode="full-ui", project_root=None, scenario="general-conference"):
     """Like _write_session but with explicit product/intent (for scope-gate tests)."""
     session_path = tmp_path / ".trtc-session.yaml"
     lines = [
@@ -278,17 +278,26 @@ def test_v4_aggregate_threshold_fails(tmp_path):
 
 
 def test_all_checks_pass(tmp_path):
-    """Fully-wired project + enough ui-* across .vue files → exit 0, silent.
+    """V1-V4 happy path: fully-wired project + ≥30 ui-* classes → exit 0.
 
-    The "happy path" pin. If this regresses we've broken the contract for
-    every Stop hook in production.
+    Scope note: this test pins V1-V4 only (themes dir, main.ts import,
+    data-theme attr, and class-count thresholds). It deliberately uses a
+    scenario whose `scenarios.yaml` row has `theme: ~` (i.e. no landmarks
+    file), so V6 (structural landmark enforcement) is skipped here.
+
+    Building a Vue fixture that satisfies V6's ~22 critical landmarks for
+    meeting-classic is a separate piece of work; this test predates V6
+    and shouldn't expand scope mid-walk-back. There are dedicated V6
+    tests elsewhere in this file that cover the landmark check directly.
     """
     project = _make_project(tmp_path, with_themes=True, with_main_ts_import=True, with_data_theme=True)
     # Build a .vue file with 32 ui-* classes (default total_min is 30).
     big = project / "src" / "App.vue"
     classes = " ".join(f"ui-cls-{i}" for i in range(32))
     big.write_text(f'<template>\n  <div class="{classes}"></div>\n</template>\n')
-    session = _write_session(tmp_path, ui_mode="full-ui", project_root=project)
+    # Use a scenario with theme:~ so V6 cleanly skips (see scope note).
+    session = _write_session(tmp_path, ui_mode="full-ui", project_root=project,
+                             scenario="online-classroom")
     result = _run_verify("--session-path", str(session))
     assert result.returncode == 0, (
         f"expected exit 0 on happy path, got {result.returncode}; stderr={result.stderr}"

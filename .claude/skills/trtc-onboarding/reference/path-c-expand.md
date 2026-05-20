@@ -1,6 +1,6 @@
 # Path C — Feature Expansion
 
-> Loaded by `onboarding/SKILL.md` when `intent = expand` in `.trtc-session.yaml` (user explicitly said "my existing project already has X, now add Y / 已经接了 X，现在想加 Y").
+> Loaded by `../../trtc-onboarding/SKILL.md` when `intent = expand` in `.trtc-session.yaml` (user explicitly said "my existing project already has X, now add Y / 已经接了 X，现在想加 Y").
 > Before reading this file, SKILL.md must have populated `.trtc-session.yaml` and passed Stage 1 calibration.
 
 **Your role: Advisor + Implementer.**

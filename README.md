@@ -22,13 +22,13 @@
 
 ```
 ai-integration/
-├── 🔵 .claude/skills/trtc/                    # Claude Code Skills（分发体）
-│   ├── SKILL.md                              #   路由入口 — 识别产品/平台，分发到子 skill
-│   ├── onboarding/SKILL.md                   #   新手引导 — Demo 运行 / 集成教程 / 排障 / 扩展
-│   ├── search/SKILL.md                       #   智能搜索 — 7 策略匹配 + 4 级 Fallback
-│   ├── apply/SKILL.md                        #   代码生成与校验 — 生成生产级代码 + 自我校验
-│   ├── topic/SKILL.md                        #   场景引导 — Checkpoint 式分步教程
-│   └── room-builder/                         #   UI 模板与主题资产
+├── 🔵 .claude/skills/                         # Claude Code Skills（每个 skill 都是顶层条目）
+│   ├── trtc/SKILL.md                         #   路由入口 — 识别产品/平台，分发到子 skill
+│   ├── trtc-onboarding/SKILL.md              #   新手引导 — Demo 运行 / 集成教程 / 排障 / 扩展
+│   ├── trtc-search/SKILL.md                  #   智能搜索 — 7 策略匹配 + 4 级 Fallback
+│   ├── trtc-apply/SKILL.md                   #   代码生成与校验 — 生成生产级代码 + 自我校验
+│   ├── trtc-topic/SKILL.md                   #   场景引导 — Checkpoint 式分步教程
+│   └── trtc/room-builder/                    #   UI 模板与主题资产
 │       ├── references/                       #     scenarios.yaml（单一数据源）+ 渲染产物
 │       ├── uikit/assets/themes/              #     主题资产（meeting-classic 等）
 │       ├── ⚪ MAINTAINING-SCENARIOS.md        #     维护者文档（如何加新场景/主题）

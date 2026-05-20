@@ -56,7 +56,7 @@ For error codes, official patterns, API comparisons, and implementation-method q
 
 Flow:
 
-1. Call `search/SKILL.md` with (product, platform, query, intent). This skill's own `intent=slice-lookup` (from the root skill) maps to one of search's accepted `intent` values based on query shape:
+1. Call `../trtc-search/SKILL.md` with (product, platform, query, intent). This skill's own `intent=slice-lookup` (from the root skill) maps to one of search's accepted `intent` values based on query shape:
 
    | docs intent | query shape | search intent to pass |
    |-------------|-------------|-----------------------|
@@ -64,15 +64,15 @@ Flow:
    | `slice-lookup` | query asks for official pattern, correct usage, or compares APIs (`X vs Y`, `the right way to X`) | `pattern` |
    | `slice-lookup` | query asks how to implement/integrate a capability (`how to do X`, `怎么实现 X`) | `feature` |
 
-   > The **authoritative enum** for search's accepted `intent` values lives in `search/SKILL.md` → Inputs. If search adds/removes an `intent`, update this mapping table in lockstep. Never pass a value not listed in search's enum.
+   > The **authoritative enum** for search's accepted `intent` values lives in `../trtc-search/SKILL.md` → Inputs. If search adds/removes an `intent`, update this mapping table in lockstep. Never pass a value not listed in search's enum.
 
-   search runs a five-strategy chain internally (`exact` → `tag` → `product-keyword` → `cross-related` → `fuzzy`) and returns a `response` object with a typed `status` field. Read the fields; do NOT parse prose. The five statuses you must handle are: `matched`, `status_planned`, `no_slice`, `no_match`, `ambiguous_product`. See `search/SKILL.md` → "Response Contract" for the full schema.
+   search runs a five-strategy chain internally (`exact` → `tag` → `product-keyword` → `cross-related` → `fuzzy`) and returns a `response` object with a typed `status` field. Read the fields; do NOT parse prose. The five statuses you must handle are: `matched`, `status_planned`, `no_slice`, `no_match`, `ambiguous_product`. See `../trtc-search/SKILL.md` → "Response Contract" for the full schema.
 
 2. **If `response.status == 'matched'`** — read `response.matches[].file_paths_read` to ground your answer:
    - For **error codes**: quote the slice's `## 错误码` / `## error_codes` section verbatim (exact code text, troubleshooting steps).
    - For **official patterns**: quote the slice's ALWAYS/NEVER rules + the relevant code example block.
    - For **API comparisons**: pull the API sections from the relevant slice(s). If two products/scenarios each have their own API (e.g., `chat/friend` vs `chat/presence`), lay them side by side (same G3 side-by-side principle as `decision-lookup`).
-   - For **implementation methods**: present the slice's step-by-step integration overview and key patterns. Then ask the user if they want to integrate this capability — if yes, route to `onboarding/SKILL.md` Path A2 with the identified slice as `target_features`.
+   - For **implementation methods**: present the slice's step-by-step integration overview and key patterns. Then ask the user if they want to integrate this capability — if yes, route to `../trtc-onboarding/SKILL.md` Path A2 with the identified slice as `target_features`.
    - When `response.matches[0].confidence == 'high'`, trust the slice as the sole source and skip llms.txt. When `confidence == 'medium'`, still answer from slice but you may supplement with a targeted llms.txt fetch if the slice is thin. When `confidence == 'low'`, treat it as a weak signal — fall through to Step 1-5.
 
 3. **If `response.status == 'no_match'` or `'no_slice'`**: fall through to Step 1 (llms.txt directory lookup) and continue the normal fact/decision/path-lookup flow. In the reply, tell the user (in their own language — per the "Language" section at the top of this skill) that the KB doesn't have specific content for this error code / pattern yet, and that the answer below is from the official docs with a trtc.io URL.

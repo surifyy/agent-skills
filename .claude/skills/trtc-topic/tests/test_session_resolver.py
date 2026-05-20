@@ -50,7 +50,7 @@ def _seed_session(project_root: Path, confirmed_plan=None) -> Path:
                 "product": "conference",
                 "platform": "web",
                 "intent": "integrate-scenario",
-                "scenario": "general-meeting",
+                "scenario": "general-conference",
                 "confirmed_plan": confirmed_plan or ["conference/login-auth"],
                 "project_state": {"project_root": str(project_root)},
             },

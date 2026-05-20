@@ -30,10 +30,10 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[5]  # repo root
-TOPIC_SKILL = ROOT / ".claude" / "skills" / "trtc" / "topic" / "SKILL.md"
+ROOT = Path(__file__).resolve().parents[4]  # repo root
+TOPIC_SKILL = ROOT / ".claude" / "skills" / "trtc-topic" / "SKILL.md"
 STATE_MACHINE_GUIDE = (
-    ROOT / ".claude" / "skills" / "trtc" / "topic" / "scripts" / "STATE-MACHINE-GUIDE.md"
+    ROOT / ".claude" / "skills" / "trtc-topic" / "scripts" / "STATE-MACHINE-GUIDE.md"
 )
 
 

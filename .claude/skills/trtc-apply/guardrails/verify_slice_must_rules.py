@@ -20,13 +20,13 @@ import sys
 from pathlib import Path
 
 GUARDRAILS_DIR = Path(__file__).resolve().parent
-ROOM_BUILDER_GUARDRAILS = GUARDRAILS_DIR.parents[1] / 'room-builder' / 'guardrails'
+ROOM_BUILDER_GUARDRAILS = GUARDRAILS_DIR.parents[1] / 'trtc' / 'room-builder' / 'guardrails'
 
 sys.path.insert(0, str(ROOM_BUILDER_GUARDRAILS))
 from lib.session_state import load_session, find_session_for_file, project_root as _project_root, in_scope, scaffold_complete
 sys.path.pop(0)
 
-REPO_ROOT = Path(__file__).resolve().parents[5]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 FALLBACK_SESSION_PATH = REPO_ROOT / ".trtc-session.yaml"
 
 # Map: scenario → list of (slice_id, [required_patterns])

@@ -1,13 +1,13 @@
 # Path A2 — Direct Integration
 
-> Loaded by `onboarding/SKILL.md` when `intent ∈ {integrate-scenario, integrate-feature}` in `.trtc-session.yaml`.
+> Loaded by `../../trtc-onboarding/SKILL.md` when `intent ∈ {integrate-scenario, integrate-feature}` in `.trtc-session.yaml`.
 > Before reading this file, SKILL.md must have populated `.trtc-session.yaml` and passed Stage 1 calibration (including Stage 1.0 conflict resolution if applicable).
 
-**Your role: Co-developer.** You scan the project and write code that follows slice-defined best practices. Every code-writing step silently runs through `apply/SKILL.md` as an internal quality gate before being declared done — the user never opts into it, and it is never surfaced as a user-facing service. See **"Calling apply"** below for the exact request/response contract.
+**Your role: Co-developer.** You scan the project and write code that follows slice-defined best practices. Every code-writing step silently runs through `../../trtc-apply/SKILL.md` as an internal quality gate before being declared done — the user never opts into it, and it is never surfaced as a user-facing service. See **"Calling apply"** below for the exact request/response contract.
 
 ## Calling apply (internal quality gate)
 
-apply is invoked per step, not per file, and not per session. It follows the I/O contract defined in `apply/SKILL.md` Phase 0. Construct each call explicitly; do not dump raw code and hope apply infers context.
+apply is invoked per step, not per file, and not per session. It follows the I/O contract defined in `../../trtc-apply/SKILL.md` Phase 0. Construct each call explicitly; do not dump raw code and hope apply infers context.
 
 **Request construction** (build this before calling apply):
 
@@ -81,11 +81,11 @@ After apply returns, read the structured `response` and branch as follows:
 > **Slice discovery vs. slice loading in this path:**
 >
 > - **When the slice ID is already known** (user picked from A2-Q1 menu, or scenario file lists the slice sequence): read `knowledge-base/{slice.file}` and the platform-specific file at `knowledge-base/slices/{product}/{platform}/{ability}.md` directly. Do NOT call search.
-> - **When the slice ID is unknown** (user described a feature in free text, or Stage 0 inferred `target_features` from natural language): call `search/SKILL.md` with `intent=feature` to discover the matching slice ID. Read `response` fields by name — see `search/SKILL.md` → "Response Contract" for the schema.
+> - **When the slice ID is unknown** (user described a feature in free text, or Stage 0 inferred `target_features` from natural language): call `../../trtc-search/SKILL.md` with `intent=feature` to discover the matching slice ID. Read `response` fields by name — see `../../trtc-search/SKILL.md` → "Response Contract" for the schema.
 > - **When `response.status == 'matched'` and `matches.length == 1`** (and `content_loaded: full`): the slice is found — load the file directly from `matches[0].file_paths_read` and proceed.
 > - **When `response.status == 'matched'` and `matches.length > 1`** (typically with `content_loaded: summary` set per match): present the slice summaries to the user and let them pick which to integrate. Use `AskUserQuestion` with each summary as an option.
-> - **When `response.status == 'no_match'` or `'no_slice'`**: the feature is not covered in the knowledge base. Fall back to `docs/SKILL.md` (which will use llms.txt to find official documentation). Inform the user in their language that the KB doesn't have a detailed integration guide for this feature, and present the official docs instead.
-> - **When `response.status == 'status_planned'`**: the slice is indexed but not yet written. Show the user `matches[0]`'s index-level description, tell them this feature's detailed playbook is still being authored, and offer to fall back to `docs/SKILL.md` for the official-doc equivalent.
+> - **When `response.status == 'no_match'` or `'no_slice'`**: the feature is not covered in the knowledge base. Fall back to `../../trtc-docs/SKILL.md` (which will use llms.txt to find official documentation). Inform the user in their language that the KB doesn't have a detailed integration guide for this feature, and present the official docs instead.
+> - **When `response.status == 'status_planned'`**: the slice is indexed but not yet written. Show the user `matches[0]`'s index-level description, tell them this feature's detailed playbook is still being authored, and offer to fall back to `../../trtc-docs/SKILL.md` for the official-doc equivalent.
 > - **When `response.status == 'ambiguous_product'`**: the user's description plausibly matches multiple products (`response.ambiguous_candidates`). Ask the user to confirm which product, then re-call search with the confirmed `product` set. Do NOT pick silently.
 >
 > Users never see that search was involved — you compose the final answer with the slice content.
@@ -140,8 +140,8 @@ file at skill entry.
 
 | # | Option | Fills | Next |
 |---|--------|-------|------|
-| 1 | Business code + full UI (recommended: AI generates a fused Vue SFC — template, AtomicXCore bindings, and styles — using the {scenario} UI template as visual reference; runs out of the box) | `ui_mode = full-ui` | hand off to `topic/SKILL.md` (Read) with full-ui spec |
-| 2 | Business logic only (headless composables / stores / types; you write your own UI — good for projects that already have a design system) | `ui_mode = headless` | hand off to `topic/SKILL.md` (Read) with headless spec |
+| 1 | Business code + full UI (recommended: AI generates a fused Vue SFC — template, AtomicXCore bindings, and styles — using the {scenario} UI template as visual reference; runs out of the box) | `ui_mode = full-ui` | hand off to `../../trtc-topic/SKILL.md` (Read) with full-ui spec |
+| 2 | Business logic only (headless composables / stores / types; you write your own UI — good for projects that already have a design system) | `ui_mode = headless` | hand off to `../../trtc-topic/SKILL.md` (Read) with headless spec |
 | 3 | Type something | free-text | re-infer |
 
 Persist `ui_mode` to `.trtc-session.yaml`. Piggyback on the Stage 1 confirmed
@@ -152,7 +152,7 @@ consultation is out of scope for this release (see pending_todos).
 
 When a scenario is chosen:
 
-1. **Handoff to `topic/SKILL.md` via Read.** Read `.claude/skills/trtc/topic/SKILL.md` and execute its flow. (The Skill tool would be ideal but cannot resolve `trtc-topic` today — it's nested under `trtc/`, not a top-level skill. The real constraints that prevent topic from being silently bypassed live in PreToolUse / Stop hooks and the on-disk state machine, not in how SKILL.md is loaded — so plain Read is sufficient.)
+1. **Handoff to `../../trtc-topic/SKILL.md` via Read.** Read `.claude/skills/trtc-topic/SKILL.md` and execute its flow. (Plain Read is the current handoff convention — the §3.5 cross-skill `Skill()` tool handoff was walked back. The real constraints that prevent topic from being silently bypassed live in PreToolUse / Stop hooks and the on-disk state machine, not in how SKILL.md is loaded — so plain Read is sufficient.)
 
    Scenario-driven step-by-step execution (reading the scenario file, walking the ordered slice list, loading per-step slices, pausing between steps, verification checklist) is topic's responsibility, not onboarding's. Onboarding A2 owns intent identification and scenario selection; once a scenario is picked, topic owns the drive.
 2. Pass the scenario id and the current `session_context` (product, platform, credentials if collected, `target_features`, `project_state`) to topic as inputs. Topic will read `knowledge-base/{scenario.file}` itself.
@@ -161,7 +161,7 @@ When a scenario is chosen:
 
 Scenario-driven UI presets, default layouts, and scenario-specific A2-Q4 tweaks are not onboarding's concern after handoff — topic handles them (or defers UI adjustments back to the user as a follow-up).
 
-If the chosen scenario has `status: planned` in the index: tell the user (in their own language) that the detailed playbook for this scenario is still being written, and offer two options — (a) fall through to A2-Q1 for manual module selection, or (b) let onboarding/topic compose the flow on-the-fly from the available slices. Do NOT silently Read `topic/SKILL.md` in this case; topic needs a concrete scenario file to drive its walk-through.
+If the chosen scenario has `status: planned` in the index: tell the user (in their own language) that the detailed playbook for this scenario is still being written, and offer two options — (a) fall through to A2-Q1 for manual module selection, or (b) let onboarding/topic compose the flow on-the-fly from the available slices. Do NOT silently Read `../../trtc-topic/SKILL.md` in this case; topic needs a concrete scenario file to drive its walk-through.
 
 ## A2-Q0.6 — Auto-advance policy (scenario-driven flows only)
 
@@ -245,7 +245,7 @@ If MCP is not available, follow the Fallback section in `mcp-usersig-generation.
 
 ### Per-step execution
 
-After writing code for each step, call `apply/SKILL.md` as described in **"Calling apply"** above. Only report the step done after `response.status` is `pass` (or `partial` with no `critical` severity issues). Summarize the outcome to the user using this template:
+After writing code for each step, call `../../trtc-apply/SKILL.md` as described in **"Calling apply"** above. Only report the step done after `response.status` is `pass` (or `partial` with no `critical` severity issues). Summarize the outcome to the user using this template:
 
 ```
 Step {n} ({slice name}) done.
@@ -333,7 +333,7 @@ deliberately NOT offered in this release — see pending_todos for the plan.
 #### Class 1: Theme tokens (safe path)
 
 **Allowed**:
-- Run `room-builder/uikit/scripts/generate-theme-overrides.py` with user-specified flags
+- Run `../../trtc/room-builder/uikit/scripts/generate-theme-overrides.py` with user-specified flags
 - Create or update `overrides.css` in the user's project
 
 **Forbidden**:

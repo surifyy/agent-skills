@@ -13,7 +13,7 @@ set -euo pipefail
 GUARDRAILS_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Resolve session path: CLAUDE_PROJECT_DIR is set by Claude Code hooks runtime.
-# Fall back to the guardrails dir's ancestor (5 levels up = repo root).
+# Fall back to the guardrails dir's ancestor (4 levels up = repo root).
 if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
     SESSION_PATH="${CLAUDE_PROJECT_DIR}/.trtc-session.yaml"
 else

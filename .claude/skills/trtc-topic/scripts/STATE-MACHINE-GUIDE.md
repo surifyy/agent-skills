@@ -13,18 +13,18 @@
 
 ```bash
 # 1. Materialise the slice queue from confirmed_plan (ONCE per scenario).
-python3 .claude/skills/trtc/topic/scripts/init_slice_queue.py
+python3 .claude/skills/trtc-topic/scripts/init_slice_queue.py
 
 # 2. Inspect the cursor at any time.
-python3 .claude/skills/trtc/topic/scripts/next_slice.py status
+python3 .claude/skills/trtc-topic/scripts/next_slice.py status
 
 # 3. Advance the cursor as you progress through the slice.
-python3 .claude/skills/trtc/topic/scripts/next_slice.py advance mark_slice_read
-python3 .claude/skills/trtc/topic/scripts/next_slice.py advance mark_code_written
-python3 .claude/skills/trtc/topic/scripts/next_slice.py advance mark_user_confirmed
+python3 .claude/skills/trtc-topic/scripts/next_slice.py advance mark_slice_read
+python3 .claude/skills/trtc-topic/scripts/next_slice.py advance mark_code_written
+python3 .claude/skills/trtc-topic/scripts/next_slice.py advance mark_user_confirmed
 
 # 4. Run apply (it advances mark_apply_passed / mark_apply_failed itself).
-python3 .claude/skills/trtc/topic/scripts/apply.py --slice <slice_id>
+python3 .claude/skills/trtc-topic/scripts/apply.py --slice <slice_id>
 ```
 
 ---
