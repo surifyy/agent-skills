@@ -19,40 +19,60 @@
 ## 项目结构
 
 ```
-trtc-ai-integration/
-├── .claude-plugin/plugin.json         # Claude Code plugin 入口
-├── .cursor-plugin/plugin.json         # Cursor plugin 入口
-├── .codex-plugin/plugin.json          # Codex plugin 入口
-├── .codebuddy-plugin/plugin.json      # CodeBuddy plugin 入口
-├── hooks/hooks.json                   # Plugin hooks（路径使用 ${CLAUDE_PLUGIN_ROOT}）
-├── skills/                            # Plugin Skills（用户安装后自动加载）
-│   ├── trtc/SKILL.md                  # 路由 skill（入口）
-│   ├── trtc-onboarding/SKILL.md       # 新手引导（分流 → demo/集成/排障/扩展）
-│   ├── trtc-search/SKILL.md           # 搜索 slice（原子能力）和 scenario（集成场景）
-│   ├── trtc-apply/SKILL.md            # 应用/校验代码
-│   ├── trtc-docs/SKILL.md             # 文档问答（定价/配额/错误码等事实性问题）
-│   └── trtc-topic/SKILL.md            # 场景引导
-├── .claude/skills/trtc-eval/          # 维护者专属 eval skill（不随 plugin 分发）
-├── CLAUDE.md                          # 本文件 — 项目级 AI 指令
-├── AGENTS.md                          # 一行引用 CLAUDE.md（兼容渲染脚本）
-├── CODEBUDDY.md                       # CodeBuddy 兼容入口
-├── llms.txt                           # llms.txt 内容规范 + 初始模板（顶层产品索引）
-├── llms/                              # llms.txt 子文件模板（最终由文档站构建流程自动生成）
-│   ├── {product}.txt                  # 产品概述 + 平台链接（如 live.txt, conference.txt）
-│   └── {product}/{platform}.txt       # 平台概述 + 官方文档链接（如 live/ios.txt, conference/web.txt）
-├── knowledge-base/
-│   ├── index.yaml                     # 全量索引（v4.0 — products/slices/scenarios/cross_product_relations）
-│   ├── slice-spec.md                  # Slice 定义规范（拆分标准、编写规范、规划方法论）
-│   ├── slices/                        # 原子能力片段
-│   │   ├── {product}/                 # 按产品分类 (chat/call/rtc-engine/live/conference)
-│   │   │   ├── {ability}.md           # 产品级概览（跨平台通用）
-│   │   │   └── {platform}/            # 按平台分类 (web/android/ios/flutter)
-│   │   │       └── {ability}.md       # 平台实现细节
-│   └── scenarios/                     # 场景组合
-│       └── {scenario-name}.md         # 引用多个 slice 的完整场景
-├── ai-instructions/                   # 维护者专属 — room-builder AI 指令源文件
-└── tests/                             # 维护者专属 — eval 测试用例
+ai-integration/
+├── 🔵 .claude-plugin/plugin.json         # Claude Code plugin 入口
+├── 🔵 .cursor-plugin/plugin.json         # Cursor plugin 入口
+├── 🔵 .codex-plugin/plugin.json          # Codex plugin 入口
+├── 🔵 .codebuddy-plugin/plugin.json      # CodeBuddy plugin 入口
+├── 🔵 hooks/hooks.json                   # Plugin hooks（路径使用 ${CLAUDE_PLUGIN_ROOT}）
+├── 🔵 skills/                            # Plugin Skills（用户安装后自动加载）
+│   ├── trtc/SKILL.md                     #   路由入口 — 识别产品/平台，分发到子 skill
+│   ├── trtc-onboarding/SKILL.md          #   新手引导 — Demo 运行 / 集成教程 / 排障 / 扩展
+│   ├── trtc-search/SKILL.md              #   智能搜索 — 7 策略匹配 + 4 级 Fallback
+│   ├── trtc-apply/SKILL.md               #   代码生成与校验 — 生成生产级代码 + 自我校验
+│   ├── trtc-docs/SKILL.md                #   文档问答（定价/配额/错误码等事实性问题）
+│   ├── trtc-topic/SKILL.md               #   场景引导 — Checkpoint 式分步教程
+│   │   └── guardrails/                   #   hook 调 (用户机器必须有)
+│   │       ├── gate_slice_read.py        #     PreToolUse: 阅读门控
+│   │       ├── gate_slice_write.py       #     PreToolUse: 写入门控
+│   │       └── stop_require_apply_evidence.py  # Stop: 校验证据
+│   └── trtc/room-builder/               #   UI 模板与主题资产
+│       ├── references/                   #     scenarios.yaml (单一数据源) + 渲染产物
+│       ├── uikit/assets/themes/          #     主题资产 (meeting-classic 等)
+│       ├── 🔘 MAINTAINING-SCENARIOS.md   #     维护者文档（如何加新场景/主题）
+│       ├── 🔵 guardrails/               #     hook 调 (用户机器必须有)
+│       │   ├── trtc_prepare_ui.py        #       SessionStart: 资产准备
+│       │   ├── trtc_verify_ui.py         #       Stop / PostToolUse: 资产校验
+│       │   ├── verify_ui_post_write.sh   #       PostToolUse 胶水
+│       │   └── lib/{session_state,theme_registry}.py
+│       └── 🔘 tools/                    #     维护者跑 (用户不调)
+│           ├── render_ai_instructions.py #       ai-instructions/ → CLAUDE.md / AGENTS.md / .cursor/rules/
+│           └── render_scenario_mapping.py#       scenarios.yaml → scenario-mapping.md
+│
+├── 🔵 CLAUDE.md                          # 本文件 — 项目级 AI 指令
+├── 🔵 AGENTS.md                          # ⊙ 由 ai-instructions/ 渲染生成
+│                                         #   OpenAI Codex CLI / Aider / Cline / CodeBuddy 自动读取
+├── 🔵 CODEBUDDY.md                       # CodeBuddy 兼容入口
+│
+├── 🔵 knowledge-base/                    # 结构化知识层 (search/apply 读)
+│   ├── index.yaml                        #   全量索引（v4.0 — products/slices/scenarios/cross_product_relations）
+│   ├── slice-spec.md                     #   Slice 定义规范（拆分标准、编写规范、规划方法论）
+│   ├── slices/                           #   原子能力片段（按产品 → 平台组织）
+│   └── scenarios/                        #   场景组合（多 Slice 串联的完整流程）
+│
+├── 🔵 llms.txt + llms/                   # llms.txt 标准模板（供外部 LLM 发现文档）
+│   ├── {product}.txt                     #   产品概述 + 平台链接（如 live.txt, conference.txt）
+│   └── {product}/{platform}.txt          #   平台概述 + 官方文档链接（如 live/ios.txt, conference/web.txt）
+│
+├── 🔘 ai-instructions/                   # 工具无关的指令源（用户拿派生产物，不读源）
+│   └── ui-mode.md                        #   渲染到 CLAUDE.md / AGENTS.md / .cursor/rules/
+│
+├── 🔘 tests/                             # 单元测试 (pytest, 仅维护者跑)
+├── 🔘 bootstrap.sh                       # 维护者一键安装 + 渲染派生
+└── 🔵 .claude/skills/trtc-eval/          # 评测工具 skill（独立体系，不随 plugin 分发）
 ```
+
+**分发规则**：插件市场打包 / 命令行安装时只下发 🔵 标记的部分。🔘 标记的（顶层 `tests/`、`ai-instructions/`、`bootstrap.sh`，以及 skill 内的 `room-builder/tools/`、`room-builder/MAINTAINING-SCENARIOS.md`）即使物理路径在 skill 树下也只供维护者使用，用户不会调用，不暴露入口。
 
 ## 核心概念
 

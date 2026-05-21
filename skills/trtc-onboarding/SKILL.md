@@ -25,10 +25,11 @@ Always respond in the same language as the user's message. If uncertain, default
 These rules apply to every question you ask in this skill.
 
 1. **No emoji in question prompts.** Keep questions plain text. Emoji is fine in content / recap sections, not in selection prompts.
-2. **Every question uses structured selection.** Use `AskUserQuestion` if available. Fall back to a numbered list otherwise. The last option is always `Type something` (free-text).
-3. **Inferred facts are never asked as yes/no.** If you inferred the platform from a `Podfile`, do not ask "Is it iOS?" — state it in the recap and move on. Only ask when genuinely unknown.
-4. **Already-answered questions are never re-asked.** Consult `${CLAUDE_PROJECT_DIR}/.trtc-session.yaml` (below) before every question. Skip any question whose answer is already filled.
-5. **Recap on transitions.** When moving between stages or paths, open the reply with a one-sentence recap of what you already know, then the next action or question.
+2. **Every question uses structured selection.** Use `AskUserQuestion` if available. Fall back to a numbered list otherwise. The "Type something" (free-text) option is automatically provided by `AskUserQuestion` as the built-in "Other" escape — do NOT include it as an explicit option.
+3. **AskUserQuestion supports 2–4 options maximum.** When a question has more than 4 choices (excluding the auto-provided "Other"), consolidate related options or split into two sequential questions. For example, combine "coming soon" products into a single disabled option, or group niche scenarios. Never pass more than 4 options — the tool will reject the call with "Invalid tool parameters."
+4. **Inferred facts are never asked as yes/no.** If you inferred the platform from a `Podfile`, do not ask "Is it iOS?" — state it in the recap and move on. Only ask when genuinely unknown.
+5. **Already-answered questions are never re-asked.** Consult `${CLAUDE_PROJECT_DIR}/.trtc-session.yaml` (below) before every question. Skip any question whose answer is already filled.
+6. **Recap on transitions.** When moving between stages or paths, open the reply with a one-sentence recap of what you already know, then the next action or question.
 
 ## Session context
 

@@ -22,7 +22,7 @@ from pathlib import Path
 
 GUARDRAILS_DIR = Path(__file__).resolve().parent
 PLUGIN_ROOT = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", Path(__file__).resolve().parents[3]))
-ROOM_BUILDER_GUARDRAILS = PLUGIN_ROOT / 'skills' / 'trtc-room-builder' / 'guardrails'
+ROOM_BUILDER_GUARDRAILS = PLUGIN_ROOT / 'skills' / 'trtc' / 'room-builder' / 'guardrails'
 
 sys.path.insert(0, str(ROOM_BUILDER_GUARDRAILS))
 from lib.session_state import load_session, find_session_for_file, project_root as _project_root, in_scope, scaffold_complete
