@@ -103,16 +103,19 @@ Question text: "What kind of experience are you building?"
 
 Options are **product-dependent**. Pull the concrete scenario list from `${CLAUDE_PLUGIN_ROOT}/knowledge-base/index.yaml` scenarios whose `product` matches the identified product. The sets below are reference — always cross-check against the current index.
 
+**Caveat for v1**: `index.yaml` lists the canonical set of scenarios; the user-facing menu MUST additionally filter against `reference/supported-matrix.md` Conference Scenarios ✅ list. Index ≠ menu — other `status: active` conference scenarios exist as content but are not yet exposed as integration entry points.
+
 **If `product = conference`:**
 
 | # | Option | Fills |
 |---|--------|-------|
-| 1 | Webinar / large-audience seminar | `scenario = webinar-conference` |
-| 2 | Telemedicine / 1v1 remote consultation | `scenario = 1v1-video-consultation` |
-| 3 | Multi-doctor / multidisciplinary consultation | `scenario = medical-multidoctor-consultation` |
-| 4 | General meeting / 常规会议 (generic, no specialized format) | `scenario = general-conference` |
-| 5 | I want to pick individual features myself | fall through to A2-Q1 |
-| 6 | Type something | free-text |
+| 1 | General meeting / 通用会议 (default for most meeting use cases) | `scenario = general-conference` |
+| 2 | Telemedicine / 1v1 视频问诊 (medical online consultation) | `scenario = 1v1-video-consultation` |
+| 3 | I want to pick individual features myself | fall through to A2-Q1 |
+
+(3 options; "Type something" is auto-provided by AskUserQuestion's Other — do NOT add it as an explicit option.)
+
+**Free-text handling**: if the user's free text maps to a hidden scenario (e.g. "webinar", "研讨会", "multidoctor", "会诊"), trigger the Integration scenario gate recap from `onboarding/SKILL.md` → `### Integration scenario gate` instead of falling through to A2-Q1.
 
 **If `product = live`:**
 

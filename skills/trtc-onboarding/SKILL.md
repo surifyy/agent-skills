@@ -238,6 +238,71 @@ Currently only **Conference** has full integration support (slices + scenarios).
 - **Blocked intents** (`integrate-scenario`, `integrate-feature`, `expand`): If `product` is NOT `conference`, do NOT proceed into Stage 1. Instead, immediately inform the user that detailed integration guides for this product are not yet available, and point them to the official docs (from the product's `llms_file` in `index.yaml`).
 - **Allowed intents** (`demo`, `troubleshoot`, `explore`): Always proceed into Stage 1 regardless of product. These paths rely on `llms.txt` indexing and trtc.io official docs, which are available for all products.
 
+### Integration platform gate (run after product gate, before Stage 1)
+
+The product gate above passes Conference. Within Conference, the integration path currently writes code only for **Web**. This gate blocks the same intents the product gate blocks — `integrate-scenario`, `integrate-feature`, `expand` — when `(product, platform)` is not ✅ in the Product × Platform table of `reference/supported-matrix.md`.
+
+- **Blocked intents** + non-(conference, web) → do NOT proceed into Stage 1. Show the unsupported-combo recap below; let the user pick a fallback.
+- **Allowed intents** (`demo`, `troubleshoot`, `explore`): always proceed regardless of platform.
+
+**Recap shown to the user** (translate to user's language):
+
+> 我看到你想集成 **{Product} on {Platform}**。
+>
+> 当前 skill 的集成能力一期只覆盖 **Conference Web**；
+> {Product} {Platform} 的集成支持 coming soon。
+>
+> 你想怎么继续？
+>
+> 1. 切到 Conference Web 集成（推荐）
+> 2. 看 {Product} {Platform} 官方 demo（demo 全平台支持）
+> 3. 查 {Product} {Platform} 文档（docs 全平台支持）
+
+(Use `AskUserQuestion` with these 3 options; "Type something" is auto-provided as the built-in Other — do NOT add it as an explicit option per Global rule #2.)
+
+**Branch behaviour:**
+
+| User picks | Next |
+|------------|------|
+| 1 | Overwrite session: `product=conference`, `platform=web`, keep intent. Proceed to Stage 1A recap. |
+| 2 | Set `intent=demo`; proceed into Path A1 with the original (product, platform). |
+| 3 | Hand off via `Skill(skill='trtc-docs')` with the original (product, platform); do NOT touch session further. |
+| Other (free text) | Re-run Stage 0 inference on the text, re-evaluate this gate. |
+
+This gate runs **only on new sessions** — when `current_step` is empty / null in the session file. If `current_step` is non-empty, an integration is already mid-flight; do NOT re-gate. See Hard rule #9.
+
+### Integration scenario gate (run after platform gate, before Stage 1)
+
+The platform gate above passes (Conference, Web). Within Conference Web, v1 ships only two scenarios: `general-conference` and `1v1-video-consultation`.
+
+**Trigger**: `intent ∈ {integrate-scenario, expand}` AND `(product, platform) == (conference, web)` AND `scenario` was inferred (from Stage 0 business-keyword mapping) AND that inferred scenario is NOT in the ✅ list of `reference/supported-matrix.md` Conference Scenarios table.
+
+When triggered, do NOT proceed into Stage 1. Show (translate to user's language):
+
+> 我看到你想做 **{inferred-scenario-display-name}**。
+>
+> 当前 skill 一期 Conference Web 只覆盖 **通用会议** 和 **1v1 视频问诊** 两个场景；
+> {inferred-scenario} coming soon。
+>
+> 你想怎么继续？
+>
+> 1. 改用**通用会议**场景集成（推荐，覆盖大多数会议形态）
+> 2. 改用 **1v1 视频问诊**场景集成
+
+(Use `AskUserQuestion` with these 2 options; "Type something" is auto-provided as Other.)
+
+**Branch behaviour:**
+
+| User picks | Next |
+|------------|------|
+| 1 | Set `scenario=general-conference`, proceed to Stage 1A recap. |
+| 2 | Set `scenario=1v1-video-consultation`, proceed to Stage 1A recap. |
+| Other (free text) | Re-run Stage 0 inference. If re-inferred scenario is still unsupported, re-show this gate. |
+
+**No-op conditions** — skip this gate entirely when:
+- `scenario` is null: user hasn't named a scenario yet; A2-Q0's narrowed menu handles selection.
+- `intent = integrate-feature`: single-feature integration; let A2-Q1 handle it unless `target_features` clearly belong to a coming-soon scenario (e.g., "webinar 等候室"). When uncertain, do NOT block.
+
 ---
 
 ## Stage 1: Calibration
@@ -374,6 +439,15 @@ Question text: "Which platform are you building on?"
 | 4 | Flutter (Dart) | `platform = flutter` |
 | 5 | Electron (desktop) | `platform = electron` |
 | 6 | Type something | free-text |
+
+**Integration intent narrowing**: when `intent ∈ {integrate-scenario, integrate-feature, expand}`, collapse this question to only 2 options (within AskUserQuestion's ≤4 limit):
+
+| # | Option | Fills |
+|---|--------|-------|
+| 1 | Web (React / Vue / plain JS) | `platform = web` |
+| 2 | Other platform — coming soon | trigger Integration platform gate recap |
+
+"Type something" is auto-provided by AskUserQuestion's Other — do NOT add it as an explicit option (Global rule #2). For all other intents (`demo`, `troubleshoot`, `explore`), keep the original 5-platform list above.
 
 ---
 
@@ -536,3 +610,14 @@ These rules are checked **on every turn**, regardless of which stage or path you
 
    **无豁免。** 即使用户主动要求"帮我生成前端 UserSig 签名器"，也必须拒绝并解释：
    "SecretKey 不能暴露在前端代码中，生产环境必须由后端签发 UserSig。我可以帮你生成后端签发的示例代码，或使用测试工具获取临时 UserSig。"
+
+10. **Integration support gate.** When `intent ∈ {integrate-scenario, integrate-feature, expand}` AND `current_step` is empty (new session), before letting topic / Path A2 / Path C generate any code, verify all applicable dimensions against `reference/supported-matrix.md`:
+
+   - `(product, platform)` is ✅ in the Product × Platform table.
+   - If `intent ∈ {integrate-scenario, expand}` AND `scenario` is already inferred: `scenario` is in the Conference Scenarios ✅ list.
+
+   If any check fails, route to the matching unsupported recap (`### Integration platform gate` or `### Integration scenario gate`). Never silently proceed into Stage 1.
+
+   **Legacy session exemption**: when `current_step` is non-empty, an integration is already mid-flight (started before this gate existed). Do NOT re-gate — the session reload logic (§"On reload") already skips Stage 0/1 entirely in this case, so the gates naturally never run. This rule documents the intent; no schema change is needed.
+
+   This rule does NOT apply to `demo` / `explore` (no code written into user files) or to `troubleshoot` diagnosis. Fix-code generation in troubleshoot is gated separately in `reference/path-b-troubleshoot.md` (Fix-write support gate) on (product, platform) only — scenario does not apply there.

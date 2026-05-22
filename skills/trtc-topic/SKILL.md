@@ -26,6 +26,22 @@ This skill is reached two ways. Both produce the same in-skill flow once a scena
 
 When a scenario picked by onboarding has `status: planned`, onboarding will have already kept the user in A2-Q1 fall-through; this skill only receives handoffs for scenarios that have written files.
 
+## Pre-flight: integration support check
+
+Before reading any scenario file or generating slice code, verify the session matches the integration support matrix on all three dimensions:
+
+- `product == 'conference'`
+- `platform == 'web'`
+- `scenario ∈ {'general-conference', '1v1-video-consultation'}`
+
+If any check fails, this is an out-of-band entry — the session was hand-edited or onboarding's gates were bypassed (typically Entry point #2: direct routing from the root skill without passing through onboarding's gate sequence). Stop immediately, do NOT generate code, and return control to onboarding with this message (translate to user's language):
+
+> This session targets {product} / {platform} / {scenario}, which isn't covered by the v1 integration path (Conference Web — `general-conference` or `1v1-video-consultation` only). Re-run onboarding to pick a supported combination, or switch to demo / docs.
+
+This is defense-in-depth; the normal entry point (handoff from onboarding A2-Q0) has already passed all gates. This guard catches direct-routing entries from the root skill and any session that lost onboarding context.
+
+Source of truth: `${CLAUDE_PLUGIN_ROOT}/skills/trtc-onboarding/reference/supported-matrix.md`.
+
 ## Guided workflow
 
 ### Step 1: Find the right scenario
