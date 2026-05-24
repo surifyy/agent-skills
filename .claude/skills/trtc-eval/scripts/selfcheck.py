@@ -9,11 +9,15 @@ Any failure → exit non-zero. Main Agent MUST abort on failure.
 """
 import argparse
 import ast
+import base64
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
+import time
+import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -32,16 +36,78 @@ def _grep_in_scripts(pattern: str) -> list[str]:
         if proc.returncode == 0 and proc.stdout.strip():
             return proc.stdout.strip().splitlines()
     except (FileNotFoundError, PermissionError):
-        # rg not available, fallback to Python grep
+        # rg not available, fallback to Python grep (case-sensitive, skip comment lines)
         hits = []
         for py_file in scripts_dir.rglob("*.py"):
             if "selfcheck" in py_file.name:
                 continue  # don't flag ourselves
             content = py_file.read_text(errors="replace")
-            if re.search(pattern, content, re.IGNORECASE):
+            non_comment = "\n".join(
+                line for line in content.splitlines()
+                if not line.lstrip().startswith("#")
+            )
+            if re.search(pattern, non_comment):
                 hits.append(str(py_file))
         return hits
     return []
+
+
+def _decode_user_sig(user_sig: str) -> dict:
+    """Decode TRTC UserSig and return the TLS payload dict.
+
+    UserSig format: base64url-variant(zlib(JSON)) where the base64 alphabet
+    substitutes  * for +,  - for /,  _ for =.
+
+    Returns dict with keys: TLS.time, TLS.expire, TLS.identifier, TLS.sig, etc.
+    Raises ValueError on any decode failure.
+    """
+    try:
+        b64 = user_sig.replace("*", "+").replace("-", "/").replace("_", "=")
+        raw = base64.b64decode(b64)
+        payload = zlib.decompress(raw)
+        return json.loads(payload)
+    except (base64.binascii.Error, zlib.error) as e:
+        raise ValueError(f"UserSig decode failed (base64/zlib): {e}") from e
+    except (json.JSONDecodeError, KeyError) as e:
+        raise ValueError(f"UserSig payload invalid: {e}") from e
+
+
+def _check_user_sig_expiry(user_sig: str, min_remaining_sec: int = 3600) -> tuple[bool, str]:
+    """Check if UserSig has enough remaining validity.
+
+    Returns (ok, detail) where detail is a human-readable explanation.
+    """
+    try:
+        data = _decode_user_sig(user_sig)
+        tls_time = int(data["TLS.time"])
+        tls_expire = int(data["TLS.expire"])
+        expire_at = tls_time + tls_expire
+        now = int(time.time())
+        remaining = expire_at - now
+
+        if remaining <= 0:
+            hours_ago = abs(remaining) // 3600
+            return False, (
+                f"UserSig expired {hours_ago}h ago "
+                f"(generated {time.strftime('%Y-%m-%d %H:%M', time.localtime(tls_time))}, "
+                f"validity {tls_expire // 3600}h). "
+                f"Regenerate at https://console.trtc.io/"
+            )
+
+        if remaining < min_remaining_sec:
+            mins_left = remaining // 60
+            return False, (
+                f"UserSig expires in {mins_left}min — not enough for a full eval run. "
+                f"Regenerate with validity >= 24h at https://console.trtc.io/"
+            )
+
+        hours_left = remaining // 3600
+        return True, f"UserSig valid for {hours_left}h (expires {time.strftime('%Y-%m-%d %H:%M', time.localtime(expire_at))})"
+
+    except (ValueError, KeyError) as e:
+        return False, str(e)
+    except Exception as e:
+        return False, f"UserSig check unexpected error: {type(e).__name__}: {e}"
 
 
 def _ast_check_imports(scripts_dir: Path) -> list[str]:
@@ -74,7 +140,7 @@ def phase_pre_run() -> dict:
 
     # CLI available
     cli_ok = False
-    for cli in ["claude", "codebuddy"]:
+    for cli in ["claude-internal", "claude", "codebuddy"]:
         try:
             proc = subprocess.run([cli, "--version"], capture_output=True, check=False)
             if proc.returncode == 0:
@@ -82,7 +148,7 @@ def phase_pre_run() -> dict:
                 break
         except (FileNotFoundError, PermissionError):
             continue
-    check("cli_available", cli_ok, "claude or codebuddy CLI must be installed")
+    check("cli_available", cli_ok, "claude-internal, claude, or codebuddy CLI must be installed")
 
     # Test account — now loaded via scripts.lib.eval_config (config.json
     # preferred, shell env as per-field fallback). A single failure here
@@ -92,13 +158,102 @@ def phase_pre_run() -> dict:
         from scripts.lib.eval_config import load_config, EvalConfigError
         try:
             cfg = load_config()
-            check("creds_sdk_app_id", cfg.trtc_test_account.sdk_app_id > 0,
+            sdk_app_id = cfg.trtc_test_account.sdk_app_id
+            user_id = cfg.trtc_test_account.user_id
+            user_sig = cfg.trtc_test_account.user_sig
+
+            check("creds_sdk_app_id", sdk_app_id > 0,
                   "sdk_app_id must be a positive integer")
-            check("creds_user_id", bool(cfg.trtc_test_account.user_id),
+            check("creds_user_id", bool(user_id),
                   "user_id must be a non-empty string")
-            check("creds_user_sig", bool(cfg.trtc_test_account.user_sig),
+            check("creds_user_sig", bool(user_sig),
                   "user_sig must be a non-empty string")
+
+            # UserSig expiry — must have >= 1h remaining to complete eval
+            # Identity match — config user_id must equal TLS.identifier in sig
+            sig_decoded = False
+            sig_identifier = None
+            sig_expires_str = None
+            sig_remaining_h = None
+            if user_sig:
+                sig_ok, sig_detail = _check_user_sig_expiry(
+                    user_sig, min_remaining_sec=3600,
+                )
+                check("creds_user_sig_not_expired", sig_ok, sig_detail)
+
+                # Decode sig to extract TLS.identifier for identity match
+                try:
+                    tls_payload = _decode_user_sig(user_sig)
+                    sig_decoded = True
+                    sig_identifier = tls_payload.get("TLS.identifier", "")
+                    tls_time = int(tls_payload["TLS.time"])
+                    tls_expire = int(tls_payload["TLS.expire"])
+                    expire_at = tls_time + tls_expire
+                    sig_expires_str = time.strftime(
+                        "%Y-%m-%d %H:%M", time.localtime(expire_at),
+                    )
+                    sig_remaining_h = max(0, (expire_at - int(time.time())) // 3600)
+
+                    id_match = user_id == sig_identifier
+                    check(
+                        "creds_identity_match", id_match,
+                        f"config user_id='{user_id}' vs "
+                        f"sig TLS.identifier='{sig_identifier}'"
+                    )
+                except ValueError as e:
+                    check("creds_identity_match", False,
+                          f"cannot decode sig for identity check: {e}")
+
             check("creds_source", True, f"loaded via {cfg.source}")
+
+            # ── Environment variable staleness check ──────────────
+            # If $TRTC_TEST_USERSIG (or other cred env vars) exists in
+            # the shell AND differs from config.json, the shell value is
+            # almost certainly stale (leftover from a previous session).
+            # Before the orchestrator fix, setdefault() let stale env
+            # vars silently shadow config.json — causing all dynamic
+            # evals to fail with "userSigExpired". Now the orchestrator
+            # force-overwrites, but we still flag the mismatch so
+            # operators are aware of the inconsistency.
+            _cred_env_checks = [
+                ("TRTC_TEST_SDKAPPID", str(sdk_app_id)),
+                ("TRTC_TEST_USERID", user_id),
+                ("TRTC_TEST_USERSIG", user_sig),
+            ]
+            for env_key, config_val in _cred_env_checks:
+                env_val = os.environ.get(env_key, "")
+                if env_val and config_val and env_val != config_val:
+                    check(
+                        f"creds_env_stale_{env_key.lower()}",
+                        False,
+                        f"${env_key} in shell differs from config.json. "
+                        f"The orchestrator will use the config.json value, "
+                        f"but consider running: unset {env_key}",
+                    )
+                else:
+                    check(f"creds_env_stale_{env_key.lower()}", True,
+                          f"no conflict for ${env_key}")
+
+            # ── evidence_block ──────────────────────────────────────
+            # Structured ground-truth for the Agent to quote verbatim.
+            # Eliminates "stale context substitution" — the Agent never
+            # needs to reformat credential fields from raw command output.
+            sig_fingerprint = (
+                f"{user_sig[:12]}...{user_sig[-4:]}"
+                if user_sig and len(user_sig) > 16 else user_sig
+            )
+            results["evidence_block"] = {
+                "sdk_app_id": sdk_app_id,
+                "user_id": user_id,
+                "user_sig_fingerprint": sig_fingerprint,
+                "sig_identifier": sig_identifier,
+                "sig_expires": sig_expires_str,
+                "sig_remaining_h": sig_remaining_h,
+                "identity_match": (
+                    user_id == sig_identifier if sig_decoded else None
+                ),
+            }
+
         except EvalConfigError as e:
             check("creds_loadable", False, str(e))
     except Exception as e:  # pragma: no cover — defensive, import-time errors
@@ -115,7 +270,7 @@ def phase_pre_run() -> dict:
     else:
         check("cases_json_exists", False, f"{cases_path} not found")
 
-    # Source hygiene: grep for mock/fake/stub keywords
+    # Source hygiene: grep for mock/fake/stub keywords (non-comment lines only)
     mock_pattern = r"MOCK|mock_|fake_|stub_|hardcoded_log|return_sample|read_fixture|FIXTURE_PATH|sample_logcat|sample_syslog"
     hits = _grep_in_scripts(mock_pattern)
     # Exclude selfcheck.py itself from this check
@@ -289,6 +444,65 @@ def phase_cases_lint() -> dict:
         intersection = mi & mni
         check(f"{tid}/no_constraint_overlap", len(intersection) == 0,
               f"Overlap: {intersection}" if intersection else "")
+
+    # ---------------------------------------------------------------
+    # DSL well-formedness: every web case's auto_run_flow must parse,
+    # and every builtin id it references (via depends_on or as a legacy
+    # list[str] entry) must have a matching <id>.ts in _builtin/.
+    #
+    # Catching these here means a typo like
+    #   "auto_run_flow": ["loginn"]
+    # fails selfcheck in milliseconds instead of after the case spends
+    # 60 seconds in HeadlessChrome only to log
+    # `Unknown EVAL_AUTO_RUN_FLOW: loginn`.
+    # ---------------------------------------------------------------
+    try:
+        from scripts.lib.schemas import AutoRunFlow, Case
+    except Exception as e:  # pragma: no cover — unreachable when install OK
+        check("dsl/import_schema", False, f"cannot import schemas: {e}")
+        return results
+
+    builtin_dir = (
+        skill_root() / "templates" / "web-demo" / "src" / "autorun" / "_builtin"
+    )
+    builtins_present: set[str] = set()
+    if builtin_dir.is_dir():
+        builtins_present = {p.stem for p in builtin_dir.glob("*.ts")}
+    check(
+        "dsl/builtin_dir_exists",
+        builtin_dir.is_dir(),
+        f"missing {builtin_dir}",
+    )
+
+    for case_raw in data:
+        tid = case_raw.get("test_id", "unknown")
+        if case_raw.get("platform") != "web":
+            continue
+        try:
+            case = Case.model_validate(case_raw)
+        except Exception as e:
+            check(f"{tid}/dsl_parse", False, str(e).splitlines()[0])
+            continue
+        check(f"{tid}/dsl_parse", True)
+
+        # Collect builtin ids the case references.
+        # Note: auto_run_flow may be [] (empty list) for "optimizer v2" cases
+        # that rely on AI-generated evalAutoRun instead of DSL flows. This is
+        # valid and produces no referenced builtins to check.
+        flow = case.auto_run_flow
+        referenced: list[str] = []
+        if isinstance(flow, AutoRunFlow):
+            referenced.extend(flow.depends_on)
+        elif isinstance(flow, list):
+            referenced.extend(flow)
+
+        missing = [bid for bid in referenced if bid not in builtins_present]
+        check(
+            f"{tid}/dsl_builtins_resolve",
+            not missing,
+            f"depends_on/list refers to missing builtin .ts: {missing}"
+            if missing else "",
+        )
 
     return results
 

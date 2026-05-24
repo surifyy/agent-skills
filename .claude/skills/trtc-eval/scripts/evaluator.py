@@ -12,7 +12,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.lib.eval_config import skill_root
-from scripts.lib.eval_config import skill_root
 from scripts.lib.schemas import Case, StaticResult
 
 

@@ -1,4 +1,4 @@
-"""Unit tests for .claude/skills/trtc/room-builder/guardrails/trtc_prepare_ui.py.
+"""Unit tests for skills/trtc/room-builder/guardrails/trtc_prepare_ui.py.
 
 Same TDD discipline as test_trtc_verify_ui.py. Each test pins one observable
 behavior of the preparer; implementation grown one test at a time.
@@ -8,12 +8,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / ".claude/skills/trtc/room-builder/guardrails"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "skills/trtc/room-builder/guardrails"))
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-PREPARE_SCRIPT = REPO_ROOT / ".claude/skills/trtc/room-builder/guardrails" / "trtc_prepare_ui.py"
-VERIFY_SCRIPT = REPO_ROOT / ".claude/skills/trtc/room-builder/guardrails" / "trtc_verify_ui.py"
-THEME_SOURCE = REPO_ROOT / ".claude" / "skills" / "trtc" / "room-builder" / "uikit" / "assets" / "themes" / "meeting-classic"
+PREPARE_SCRIPT = REPO_ROOT / "skills/trtc/room-builder/guardrails" / "trtc_prepare_ui.py"
+VERIFY_SCRIPT = REPO_ROOT / "skills/trtc/room-builder/guardrails" / "trtc_verify_ui.py"
+THEME_SOURCE = REPO_ROOT / "skills" / "trtc" / "room-builder" / "uikit" / "assets" / "themes" / "meeting-classic"
 
 
 def _write_session(tmp_path, *, ui_mode, project_root=None, scenario="general-conference"):
@@ -82,15 +82,17 @@ def test_noop_when_ui_mode_not_full_ui(tmp_path):
 
     Same fundamental contract as the verifier. The SessionStart hook fires
     on every Claude Code session start in this repo; if we'd mutate state
-    just because ui_mode is null, we'd corrupt unrelated workflows.
+    just because ui_mode is null or official-roomkit, we'd corrupt unrelated
+    workflows.
     """
-    project = tmp_path / "user-project"
-    project.mkdir()
-    session = _write_session(tmp_path, ui_mode=None, project_root=project)
-    result = _run_prepare("--session-path", str(session))
-    assert result.returncode == 0, f"expected exit 0; stderr={result.stderr}"
-    # No themes dir was created.
-    assert not (project / "src" / "themes").exists()
+    for mode in (None, "official-roomkit"):
+        project = tmp_path / f"user-project-{mode or 'null'}"
+        project.mkdir()
+        session = _write_session(tmp_path, ui_mode=mode, project_root=project)
+        result = _run_prepare("--session-path", str(session))
+        assert result.returncode == 0, f"mode={mode}; expected exit 0; stderr={result.stderr}"
+        # No themes dir was created.
+        assert not (project / "src" / "themes").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -429,9 +431,9 @@ def _setup_alternate_theme(tmp_path, *, slug="theme-test", data_theme="tt",
     """
     import shutil as _sh
     kb = tmp_path / "tmp-kb"
-    yaml_dir = kb / ".claude/skills/trtc/room-builder/references"
+    yaml_dir = kb / "skills/trtc/room-builder/references"
     yaml_dir.mkdir(parents=True)
-    theme_src = kb / ".claude/skills/trtc/room-builder/uikit/assets/themes" / slug
+    theme_src = kb / "skills/trtc/room-builder/uikit/assets/themes" / slug
     theme_src.mkdir(parents=True)
     # Marker file — proves recursive copy actually copied THIS theme.
     (theme_src / "marker.txt").write_text(f"slug:{slug}\n")
@@ -448,7 +450,7 @@ def _setup_alternate_theme(tmp_path, *, slug="theme-test", data_theme="tt",
         '    notes: ""\n'
         "    theme:\n"
         f"      slug: {slug}\n"
-        f"      source_dir: .claude/skills/trtc/room-builder/uikit/assets/themes/{slug}\n"
+        f"      source_dir: skills/trtc/room-builder/uikit/assets/themes/{slug}\n"
         f"      data_theme: {data_theme}\n"
         f"      import_path: '@/themes/{slug}/index.css'\n"
         f"      target_dir: {target_dir}\n"
@@ -457,8 +459,8 @@ def _setup_alternate_theme(tmp_path, *, slug="theme-test", data_theme="tt",
 
     # Copy scripts/ tree so the script's REPO_ROOT-via-__file__ lands inside
     # the tmp kb rather than the real repo. Symlink would resolve back.
-    _sh.copytree(REPO_ROOT / ".claude/skills/trtc/room-builder/guardrails", kb / ".claude/skills/trtc/room-builder/guardrails")
-    _sh.copytree(REPO_ROOT / ".claude/skills/trtc/room-builder/tools", kb / ".claude/skills/trtc/room-builder/tools")
+    _sh.copytree(REPO_ROOT / "skills/trtc/room-builder/guardrails", kb / "skills/trtc/room-builder/guardrails")
+    _sh.copytree(REPO_ROOT / "skills/trtc/room-builder/tools", kb / "skills/trtc/room-builder/tools")
     return kb, slug
 
 
@@ -474,7 +476,7 @@ def test_p1_uses_theme_specific_target_dir_for_alternate_theme(tmp_path):
         tmp_path, ui_mode="full-ui", project_root=project, scenario=slug,
     )
     result = subprocess.run(
-        ["python3", str(kb / ".claude/skills/trtc/room-builder/guardrails" / "trtc_prepare_ui.py"),
+        ["python3", str(kb / "skills/trtc/room-builder/guardrails" / "trtc_prepare_ui.py"),
          "--session-path", str(session)],
         capture_output=True, text=True, cwd=str(kb),
     )
@@ -499,7 +501,7 @@ def test_p3_uses_theme_specific_data_theme_attribute(tmp_path):
         tmp_path, ui_mode="full-ui", project_root=project, scenario=slug,
     )
     result = subprocess.run(
-        ["python3", str(kb / ".claude/skills/trtc/room-builder/guardrails" / "trtc_prepare_ui.py"),
+        ["python3", str(kb / "skills/trtc/room-builder/guardrails" / "trtc_prepare_ui.py"),
          "--session-path", str(session)],
         capture_output=True, text=True, cwd=str(kb),
     )

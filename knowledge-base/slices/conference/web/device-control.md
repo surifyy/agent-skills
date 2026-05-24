@@ -88,32 +88,29 @@ export async function toggleCamera() {
 ### 会议推荐：进房后先静音，再建立麦克风采集
 
 ```ts
-import { ref } from 'vue';
-import { useDeviceState, useRoomParticipantState } from 'tuikit-atomicx-vue3/room';
+import { computed } from 'vue';
+import { DeviceStatus, useDeviceState, useRoomParticipantState } from 'tuikit-atomicx-vue3/room';
 
-const { openLocalMicrophone, currentMicVolume } = useDeviceState();
+const { microphoneStatus, openLocalMicrophone, currentMicVolume } = useDeviceState();
 const { muteMicrophone, unmuteMicrophone } = useRoomParticipantState();
 
-const isMuted = ref(true);
+const isMicrophoneOn = computed(() => microphoneStatus.value === DeviceStatus.On);
 
 export async function prepareMicrophoneAfterJoin() {
   await muteMicrophone();
   await openLocalMicrophone();
-  isMuted.value = true;
 }
 
 export async function handleClickOpenMicrophone() {
   await unmuteMicrophone();
-  isMuted.value = false;
 }
 
 export async function handleClickCloseMicrophone() {
   await muteMicrophone();
-  isMuted.value = true;
 }
 
 export function shouldPromptSpeakingWhileMuted() {
-  return isMuted.value && currentMicVolume.value > 30;
+  return !isMicrophoneOn.value && currentMicVolume.value > 30;
 }
 ```
 
@@ -149,10 +146,13 @@ export function shouldPromptSpeakingWhileMuted() {
 ### 3. 设备错误应直接投射到 UI
 摄像头或麦克风异常时，应把 `cameraLastError`、`microphoneLastError` 等状态及时映射成提示，而不是只在控制台打印。
 
-### 4. 设备入口要区分“房间级禁用”和“成员级关闭”
+### 4. 工具栏状态应以 AtomicX 状态为准
+麦克风按钮应直接用 `useDeviceState().microphoneStatus === DeviceStatus.On` 判断当前是否开麦，再分别调用 `muteMicrophone()` / `unmuteMicrophone()`。自定义工具栏不要额外维护一个容易漂移的本地 `isMuted` 作为唯一事实源；如果业务需要本地 UI 状态，也应从 `microphoneStatus` 派生。
+
+### 5. 设备入口要区分“房间级禁用”和“成员级关闭”
 如果当前是 `disableAllDevices` 触发的房间级禁用，这类限制通常只作用于普通成员；普通成员的设备 icon 应表现为 disabled，并在点击时通过 toast 或等价提示说明原因。是否继续允许用户通过 `requestToOpenDevice()` 申请开启，需要结合客户需求决定。若只是被房主或管理员单独关闭设备，则更适合提示“设备已被管理员关闭”，并允许用户在没有房间级禁用的前提下再次调用 `openLocalCamera()` 或 `unmuteMicrophone()` 主动恢复。
 
-### 5. `iframe` 集成要显式放开媒体权限
+### 6. `iframe` 集成要显式放开媒体权限
 如果会议页面运行在 `iframe` 内，宿主页面需要通过 `allow` 放开麦克风、摄像头、屏幕共享和全屏权限；否则即使业务代码正确，浏览器也可能直接拦截媒体采集或共享能力。
 
 ## 代码生成约束

@@ -90,14 +90,18 @@ def _append_trace(trace_path: Path, data: dict) -> None:
 
 
 def _apply_creds_to_env(env: dict, account: TrtcTestAccount) -> None:
-    """Fill TRTC_TEST_* keys in ``env`` only if not already set by the caller.
-    Shell env wins over config.json — config only fills gaps. This matches the
-    per-field resolution inside load_config() and keeps CI secret injection
-    working even when a repo-local config.json has placeholders.
+    """Write resolved TRTC_TEST_* credentials into ``env``, **always overwriting**.
+
+    config.json is the single source of truth for credentials (with shell env
+    as a per-field fallback when config.json fields are missing — that
+    resolution already happened inside ``load_config()``).  The resolved
+    ``account`` must win unconditionally so that stale shell environment
+    variables (e.g. an expired $TRTC_TEST_USERSIG from a previous session)
+    can never shadow the correct value from config.json.
     """
-    env.setdefault("TRTC_TEST_SDKAPPID", str(account.sdk_app_id))
-    env.setdefault("TRTC_TEST_USERID", account.user_id)
-    env.setdefault("TRTC_TEST_USERSIG", account.user_sig)
+    env["TRTC_TEST_SDKAPPID"] = str(account.sdk_app_id)
+    env["TRTC_TEST_USERID"] = account.user_id
+    env["TRTC_TEST_USERSIG"] = account.user_sig
 
 
 def _write_case_creds(case_dir: Path, account: TrtcTestAccount) -> None:
@@ -123,14 +127,14 @@ _PY = sys.executable  # Use the same Python interpreter for subprocesses
 _SCRIPTS_DIR = _SKILL_ROOT / "scripts"  # Absolute path so subprocess cwd doesn't matter
 
 STEPS = [
-    # (name, cmd_builder, required_for_pass)
-    ("run_ai", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "run_ai.py"), "--case-id", c.test_id, "--run-dir", d], True),
-    ("evaluator", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "evaluator.py"), "--case-id", c.test_id, "--run-dir", d], True),
-    ("demo_build", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "demo_runner.py"), "--case-id", c.test_id, "--run-dir", d, "--phase=build"], True),
-    ("log_stream_start", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "log_streamer.py"), "--case-id", c.test_id, "--run-dir", d, "--mode=start"], False),
-    ("demo_run", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "demo_runner.py"), "--case-id", c.test_id, "--run-dir", d, "--phase=run"], False),
-    ("log_stream_stop", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "log_streamer.py"), "--case-id", c.test_id, "--run-dir", d, "--mode=stop"], False),
-    ("runtime_monitor", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "runtime_monitor.py"), "--case-id", c.test_id, "--run-dir", d], False),
+    # (name, cmd_builder, required_for_pass, timeout_sec)
+    ("run_ai", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "run_ai.py"), "--case-id", c.test_id, "--run-dir", d], True, 360),
+    ("evaluator", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "evaluator.py"), "--case-id", c.test_id, "--run-dir", d], True, 60),
+    ("demo_build", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "demo_runner.py"), "--case-id", c.test_id, "--run-dir", d, "--phase=build"], True, 600),
+    ("log_stream_start", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "log_streamer.py"), "--case-id", c.test_id, "--run-dir", d, "--mode=start"], False, 30),
+    ("demo_run", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "demo_runner.py"), "--case-id", c.test_id, "--run-dir", d, "--phase=run"], False, 120),
+    ("log_stream_stop", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "log_streamer.py"), "--case-id", c.test_id, "--run-dir", d, "--mode=stop"], False, 10),
+    ("runtime_monitor", lambda c, d, e: [_PY, str(_SCRIPTS_DIR / "runtime_monitor.py"), "--case-id", c.test_id, "--run-dir", d], False, 30),
 ]
 
 
@@ -186,6 +190,22 @@ def _build_summary(case: Case, case_dir: Path, overall_duration: float) -> CaseS
         failure_reason=failure_reason,
         artifacts_dir=str(case_dir),
         duration_sec=round(overall_duration, 2),
+        score_breakdown={
+            "static_score": round(static_score, 4),
+            "dynamic_score": round(dynamic_score, 4),
+            "w_static_in_final": case.weights.w_static_in_final,
+            "w_dynamic_in_final": case.weights.w_dynamic_in_final,
+            "formula": (
+                f"{static_score:.4f} * {case.weights.w_static_in_final} "
+                f"+ {dynamic_score:.4f} * {case.weights.w_dynamic_in_final} "
+                f"= {final_score:.4f}"
+            ),
+            "acceptance": {
+                "static_score_min": case.acceptance.static_score_min,
+                "dynamic_score_min": case.acceptance.dynamic_score_min,
+                "must_compile": case.acceptance.must_compile,
+            },
+        },
     )
 
 
@@ -221,9 +241,12 @@ def main() -> int:
     nonce = secrets.token_hex(16)
     env = {**os.environ, "EVAL_RUN_NONCE": nonce}
 
-    # 2a) Load TRTC test credentials from skill config (falls back to shell env).
-    # setdefault() means shell env still wins for CI secret injection; config
-    # only fills gaps. Credentials are also persisted to a per-case launch.env
+    # 2a) Load TRTC test credentials from skill config.
+    # load_config() resolves per-field: config.json preferred, shell env as
+    # fallback for missing fields.  _apply_creds_to_env() then OVERWRITES
+    # the subprocess env dict unconditionally so that stale shell variables
+    # (e.g. an expired $TRTC_TEST_USERSIG) can never leak into child
+    # processes.  Credentials are also persisted to a per-case launch.env
     # file so platform-specific layers (log-bridge for web, launch --console
     # for ios/android) can locate them deterministically.
     try:
@@ -234,9 +257,11 @@ def main() -> int:
     _apply_creds_to_env(env, eval_cfg.trtc_test_account)
     _write_case_creds(case_dir, eval_cfg.trtc_test_account)
 
-    # Inject auto_run_flow into environment so the App's AutoRunCoordinator picks it up
-    if case.auto_run_flow:
-        env["EVAL_AUTO_RUN_FLOW"] = case.auto_run_flow[0]
+    # Inject auto_run_flow into environment so the App's AutoRunCoordinator picks it up.
+    # Pass ALL flows as comma-separated string so the coordinator runs them sequentially.
+    flow_ids = case.autorun_flow_ids()
+    if flow_ids:
+        env["EVAL_AUTO_RUN_FLOW"] = ",".join(flow_ids)
 
     _append_trace(trace_path, {
         "step": "_meta",
@@ -252,7 +277,7 @@ def main() -> int:
     t_start = time.time()
     SKIP_ON_BUILD_FAIL = {"log_stream_start", "demo_run", "log_stream_stop", "runtime_monitor"}
 
-    for i, (name, build_cmd, required) in enumerate(STEPS[:args.limit_step]):
+    for i, (name, build_cmd, required, step_timeout) in enumerate(STEPS[:args.limit_step]):
         if name in SKIP_ON_BUILD_FAIL and build_failed:
             _append_trace(trace_path, {
                 "step": name, "status": "skipped", "reason": "compile_fail", "ts": _now(),
@@ -307,8 +332,28 @@ def main() -> int:
 
         t0 = time.time()
         try:
-            proc = subprocess.run(cmd, env=env, timeout=600, capture_output=True)
+            proc = subprocess.run(cmd, env=env, timeout=step_timeout, capture_output=True)
             dur = time.time() - t0
+
+            # Retry run_ai once if skill loading failed (kb_unreachable).
+            # This handles intermittent skill registration failures where the
+            # AI driver cannot find the trtc skill and returns an error JSON.
+            if name == "run_ai" and proc.returncode == 0:
+                ai_output_path = case_dir / "ai_raw_output.md"
+                if ai_output_path.exists():
+                    ai_content = ai_output_path.read_text(errors="replace")
+                    if "kb_unreachable" in ai_content and len(ai_content) < 200:
+                        _append_trace(trace_path, {
+                            "step": name,
+                            "status": "retry",
+                            "reason": "kb_unreachable detected, retrying once",
+                            "duration_sec": round(dur, 2),
+                            "ts": _now(),
+                        })
+                        t0 = time.time()
+                        proc = subprocess.run(cmd, env=env, timeout=step_timeout, capture_output=True)
+                        dur = time.time() - t0
+
             _append_trace(trace_path, {
                 "step": name,
                 "exit_code": proc.returncode,

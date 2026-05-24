@@ -25,6 +25,20 @@ Given a user's TRTC integration question, you MUST:
 - Complete and compilable — include all imports, class definitions, delegate/callback implementations
 - Inline comments explaining key steps (citing the slice's ALWAYS/NEVER rules where relevant)
 
+### File path declaration (REQUIRED for each code block)
+
+Every code block's **first line** MUST be a filepath declaration indicating where the file should be placed relative to the `src/` directory:
+
+- **Vue SFC**: `<!-- filepath: src/views/ConferenceRoom.vue -->`
+- **TypeScript/JavaScript**: `// filepath: src/composables/useConference.ts`
+- **Swift**: `// filepath: Sources/ConferenceRoom.swift`
+- **Kotlin**: `// filepath: app/src/main/java/com/example/ConferenceRoom.kt`
+
+Rules:
+- Path is relative to the project root
+- For web projects, paths MUST start with `src/`
+- If unsure of the exact path, use `src/generated/<filename>` as fallback
+
 ### Dependency declaration (REQUIRED)
 
 You MUST output a fenced `json` code block with the **exact label** `dependencies` (i.e., ` ```json dependencies `) containing the packages your code requires. The eval pipeline will parse this block and install dependencies before compilation.
@@ -48,6 +62,70 @@ Rules:
 - Omit keys for irrelevant platforms (e.g., an iOS case should NOT include `"npm"`)
 - This block MUST appear BEFORE the implementation code blocks
 - If no dependencies are needed, output: `{}` inside the block
+
+### Auto-run entry (REQUIRED for web platform)
+
+For **web** cases, you MUST also generate an auto-run script file that the eval harness will invoke after the application starts. This file exercises the core functionality you implemented so the eval pipeline can verify runtime behavior.
+
+```typescript
+// filepath: src/generated/eval-autorun.ts
+
+// Import the composables/functions you used in your implementation
+import { useLoginState } from 'tuikit-atomicx-vue3/room';
+// ... other imports matching your implementation
+
+/**
+ * Eval auto-run entry point.
+ * The eval harness injects credentials and calls this function.
+ * You MUST exercise every core feature you implemented, in order.
+ */
+export async function evalAutoRun(env: {
+  sdkAppId: number;
+  userId: string;
+  userSig: string;
+  roomId: string;
+}) {
+  try {
+    // Step 1: Login
+    console.log('[eval] step: login');
+    const loginApi = useLoginState();
+    await loginApi.login({
+      sdkAppId: env.sdkAppId,
+      userId: env.userId,
+      userSig: env.userSig,
+    });
+    await new Promise(r => setTimeout(r, 2000));
+
+    // Step 2: Your core feature (e.g., createRoom)
+    console.log('[eval] step: createRoom');
+    // ... call the APIs you implemented
+    await new Promise(r => setTimeout(r, 2000));
+
+    // Step N: Clean up (e.g., leaveRoom)
+    console.log('[eval] step: leaveRoom');
+    // ... cleanup calls
+
+    console.log('[eval] done');
+  } catch (err) {
+    console.error('[eval] fatal:', err);
+  }
+}
+
+// Register globally so the eval harness can invoke it
+(window as any).__evalAutoRun = evalAutoRun;
+```
+
+**Rules for eval-autorun.ts:**
+
+1. File MUST be at `src/generated/eval-autorun.ts`
+2. Export function name MUST be `evalAutoRun`
+3. MUST register to `window.__evalAutoRun`
+4. Each core step MUST be preceded by `console.log('[eval] step: <name>')`
+5. Use try/catch — on failure log `console.error('[eval] fatal:', err)` but continue subsequent steps where possible
+6. Credentials come from the `env` parameter — **NEVER hardcode** sdkAppId/userId/userSig
+7. Add `await new Promise(r => setTimeout(r, 2000))` between steps to allow SDK async operations to complete
+8. End with `console.log('[eval] done')`
+9. Import and use the SAME composables/functions from your implementation code — this is how the eval verifies your code actually works at runtime
 
 ## Hard fail mode (kb-unreachable)
 

@@ -24,7 +24,14 @@ def copy_template(platform: str, case_dir: Path, templates_root: Path) -> Path:
     shutil.copytree(
         src, dst, symlinks=False,
         ignore=shutil.ignore_patterns(
-            "build", "DerivedData", "node_modules", ".gradle", "Pods/Pods.xcodeproj"
+            "build", "DerivedData", "node_modules", ".gradle", "Pods/Pods.xcodeproj",
+            # _builtin/ is the source pool that flow_codegen.generate reads at
+            # build time. Each case's workspace only needs the specific .ts
+            # files its DSL references — flow_codegen copies (and rewrites)
+            # them into workspace/src/autorun/ directly. Keeping _builtin/
+            # out of the workspace avoids shipping unused builtin code and
+            # avoids shadowing the rewritten copies.
+            "_builtin",
         ),
     )
     # Copy pinned_commit for audit

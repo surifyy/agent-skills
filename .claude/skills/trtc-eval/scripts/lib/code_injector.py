@@ -15,6 +15,13 @@ Responsibilities:
    names based on header-comment hints, relative-import reverse-inference, and framework default
    entry convention. Unroutable non-code blocks (.xml/.plist/.json/...) are parked in
    ``case_dir/ai_unrouted/`` so they remain auditable without polluting workspace.
+5. **Filepath extraction (v2 — optimizer)**: AI code blocks may declare their
+   intended destination via ``<!-- filepath: src/views/Foo.vue -->`` (for
+   .vue files) or ``// filepath: src/composables/bar.ts`` (for .ts/.js).
+   When present these take highest priority, above ``demo_injection_map`` and
+   content-feature detection. This is part of the "remove technical barriers"
+   initiative so non-engineers can write test cases without knowing template
+   project structure.
 """
 import json
 import re
@@ -27,6 +34,74 @@ from scripts.lib.file_naming import resolve_ai_filenames
 
 class InjectError(Exception):
     pass
+
+
+# ---------------------------------------------------------------------------
+# Filepath extraction from AI code (v2 — optimizer)
+# ---------------------------------------------------------------------------
+# Regexes to extract `filepath` declarations from the first few lines of a
+# code block. Both HTML-comment and line-comment styles are supported so the
+# convention works across .vue, .ts, .js, .swift, .kt, etc.
+#
+# Examples matched:
+#   <!-- filepath: src/views/ConferenceRoom.vue -->
+#   // filepath: src/composables/useConference.ts
+#   # filepath: scripts/helper.py
+
+_FILEPATH_HTML_RE = re.compile(
+    r"<!--\s*filepath:\s*(.+?)\s*-->", re.IGNORECASE
+)
+_FILEPATH_LINE_RE = re.compile(
+    r"^(?://|#)\s*filepath:\s*(.+?)\s*$", re.MULTILINE | re.IGNORECASE
+)
+
+
+def _extract_filepath_declaration(content: str) -> str | None:
+    """Extract a filepath declaration from the first ~5 lines of AI output.
+
+    Returns the declared path (relative to ``src/``) or ``None`` if no
+    declaration is found.  Paths starting with ``src/`` are used as-is;
+    otherwise ``src/`` is prepended to keep files inside the Vite source tree.
+    """
+    # Only scan the first ~500 chars to avoid matching comments deep in the file
+    head = content[:500]
+    m = _FILEPATH_HTML_RE.search(head) or _FILEPATH_LINE_RE.search(head)
+    if not m:
+        return None
+    raw_path = m.group(1).strip()
+    if not raw_path:
+        return None
+    # Normalise: ensure path starts with src/ for Vite compatibility
+    if not raw_path.startswith("src/"):
+        raw_path = f"src/{raw_path}"
+    return raw_path
+
+
+def _filepath_injection_map(
+    ai_code_dir: Path,
+    platform: str,
+) -> dict[str, dict]:
+    """Build an injection map from filepath declarations in AI code files.
+
+    Scans each file in ``ai_code_dir`` for a ``filepath:`` declaration.  Files
+    that declare a path are returned as ``{filename: {target_file, replace_mode}}``.
+    Files WITHOUT declarations are omitted — they will be handled by the
+    existing ``_default_injection_map`` or ``demo_injection_map`` fallback.
+    """
+    result: dict[str, dict] = {}
+    if not ai_code_dir.is_dir():
+        return result
+    for f in sorted(ai_code_dir.iterdir()):
+        if not f.is_file():
+            continue
+        content = f.read_text(errors="replace")
+        declared = _extract_filepath_declaration(content)
+        if declared:
+            result[f.name] = {
+                "target_file": declared,
+                "replace_mode": "overwrite",
+            }
+    return result
 
 
 def _load_injection_config(workspace: Path) -> dict:
@@ -656,6 +731,21 @@ def _park_unrouted_files(
     return parked
 
 
+def _to_pascal_case(filename_stem: str) -> str:
+    """Convert a filename stem to PascalCase for Vue component names.
+
+    Examples: 'ConferenceRoom' -> 'ConferenceRoom',
+              'conference-room' -> 'ConferenceRoom',
+              'my_component' -> 'MyComponent'
+    """
+    # If no separators, assume already PascalCase or single word
+    if "-" not in filename_stem and "_" not in filename_stem:
+        return filename_stem[0].upper() + filename_stem[1:] if filename_stem else ""
+    # Split on hyphens and underscores
+    parts = re.split(r"[-_]", filename_stem)
+    return "".join(p.capitalize() for p in parts if p)
+
+
 def _assert_web_entry_present(
     workspace: Path,
     framework: str,
@@ -666,6 +756,11 @@ def _assert_web_entry_present(
     not include one (common when AI only returns composables / helpers),
     synthesize a minimal skeleton that imports them — this keeps the demo
     compilable and lets the injected code be evaluated for runtime signals.
+
+    For Vue3 frameworks, ``.vue`` files injected anywhere under ``src/`` are
+    imported as named components and mounted in the ``<template>`` so the
+    AI-generated UI is actually rendered in the DOM (not just side-effect
+    imported).
     """
     expected = {
         "vue3": "src/generated/App.vue",
@@ -679,9 +774,7 @@ def _assert_web_entry_present(
     if entry_path.exists():
         return
 
-    # Synthesize a minimal entry that imports every routed file in
-    # src/generated/ so that the composables' top-level side effects run
-    # (subscribe to events, console.log, etc.).
+    # Collect sibling files in src/generated/ (side-effect imports for .ts/.js)
     generated_dir = workspace / "src" / "generated"
     sibling_imports: list[str] = []
     if generated_dir.is_dir():
@@ -693,7 +786,37 @@ def _assert_web_entry_present(
                 stem = f.stem if f.suffix != ".vue" else f.name
                 sibling_imports.append(stem)
 
-    if not sibling_imports:
+    # Collect .vue components from ALL injected files (not just src/generated/).
+    # These need to be imported as named components and mounted in <template>.
+    vue_components: list[tuple[str, str]] = []  # (component_name, import_path)
+    src_dir = workspace / "src"
+    if framework in ("vue3", "vue2"):
+        for dst in injected_dst_files:
+            if dst.suffix.lower() != ".vue":
+                continue
+            # Skip the entry file itself
+            try:
+                rel_to_workspace = dst.relative_to(workspace)
+            except ValueError:
+                continue
+            if str(rel_to_workspace) == expected:
+                continue
+            # Skip files already in src/generated/ (handled as sibling_imports)
+            try:
+                dst.relative_to(generated_dir)
+                continue  # Already covered by sibling_imports scan
+            except ValueError:
+                pass
+            # Compute import path relative to src/generated/ (where App.vue lives)
+            try:
+                rel_to_src = dst.relative_to(src_dir)
+            except ValueError:
+                continue
+            import_path = "../" + str(rel_to_src).replace("\\", "/")
+            component_name = _to_pascal_case(dst.stem)
+            vue_components.append((component_name, import_path))
+
+    if not sibling_imports and not vue_components:
         # Nothing to wire up — fail loudly rather than generate a blank shell.
         raise InjectError(
             f"web framework '{framework}' profile expects {expected} but no "
@@ -704,19 +827,45 @@ def _assert_web_entry_present(
 
     entry_path.parent.mkdir(parents=True, exist_ok=True)
     if framework in ("vue3", "vue2"):
-        imports = "\n".join(f'import "./{name}";' for name in sibling_imports)
-        skel = (
-            f"<!-- auto-generated skeleton (no AI-provided entry) -->\n"
-            f"<script setup lang=\"ts\">\n"
-            f"{imports}\n"
-            f"</script>\n"
-            f"<template>\n"
-            f"  <div class=\"eval-skeleton\">\n"
-            f"    <!-- generated shells: {', '.join(sibling_imports)} -->\n"
-            f"    MyApplication (eval skeleton)\n"
-            f"  </div>\n"
-            f"</template>\n"
-        )
+        # Build imports: named imports for .vue components, side-effect for .ts/.js
+        import_lines: list[str] = []
+        for comp_name, imp_path in vue_components:
+            import_lines.append(f'import {comp_name} from "{imp_path}";')
+        for name in sibling_imports:
+            import_lines.append(f'import "./{name}";')
+        imports = "\n".join(import_lines)
+
+        # Build template: mount Vue components, show skeleton text as fallback
+        if vue_components:
+            component_tags = "\n".join(
+                f"    <{comp_name} />" for comp_name, _ in vue_components
+            )
+            all_names = [c[0] for c in vue_components] + sibling_imports
+            skel = (
+                f"<!-- auto-generated skeleton with mounted components -->\n"
+                f"<script setup lang=\"ts\">\n"
+                f"{imports}\n"
+                f"</script>\n"
+                f"<template>\n"
+                f"  <div class=\"eval-app\">\n"
+                f"    <!-- mounted components: {', '.join(c[0] for c in vue_components)} -->\n"
+                f"{component_tags}\n"
+                f"  </div>\n"
+                f"</template>\n"
+            )
+        else:
+            skel = (
+                f"<!-- auto-generated skeleton (no AI-provided entry) -->\n"
+                f"<script setup lang=\"ts\">\n"
+                f"{imports}\n"
+                f"</script>\n"
+                f"<template>\n"
+                f"  <div class=\"eval-skeleton\">\n"
+                f"    <!-- generated shells: {', '.join(sibling_imports)} -->\n"
+                f"    MyApplication (eval skeleton)\n"
+                f"  </div>\n"
+                f"</template>\n"
+            )
     elif framework == "react":
         imports = "\n".join(f'import "./{name}";' for name in sibling_imports)
         skel = (
@@ -757,6 +906,14 @@ def inject(
     injection_map: dict mapping ai_filename -> InjectionPoint model or dict
     with target_file. Targets not yet in INJECTION.json are auto-registered.
 
+    **Priority chain** (highest → lowest):
+
+    1. Non-empty ``injection_map`` from cases.json (backward compat)
+    2. Filepath declarations in AI code (``<!-- filepath: ... -->`` /
+       ``// filepath: ...``) — v2 optimizer
+    3. Content-feature detection via ``_default_injection_map`` (web only)
+    4. Fallback naming (block_NN → src/generated/)
+
     For web, any AI files not covered by ``injection_map`` are routed via
     ``_default_injection_map`` (header-comment hints → import reverse-inference
     → framework entry → block_NN fallback). Non-code blocks are parked in
@@ -769,9 +926,13 @@ def inject(
 
     parked: list[str] = []
     if platform == "web":
+        # v2 optimizer: filepath declarations take priority over content-
+        # feature detection, but are overridden by explicit injection_map
+        # entries from cases.json (backward compat).
+        filepath_map = _filepath_injection_map(ai_code_dir, platform)
         defaults = _default_injection_map(ai_code_dir, platform, framework)
-        # Explicit map entries win over defaults.
-        merged = {**defaults, **injection_map}
+        # Merge order: defaults < filepath declarations < explicit map
+        merged = {**defaults, **filepath_map, **injection_map}
         injection_map = merged
         if case_dir is not None:
             parked = _park_unrouted_files(ai_code_dir, case_dir, platform, framework)

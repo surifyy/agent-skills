@@ -57,8 +57,8 @@ api_docs:
 如果**本地用户已经开启屏幕分享，但本地共享 tile 不展示真实预览或表现为黑底**，也推荐在共享流上给一个居中的“正在共享屏幕”示例态，例如：图标 + 状态文案 + “结束共享”操作。这里的视觉样式只是示例，不是固定 UI 规范；业务可以替换成更轻的提示条、品牌化插画或其他表达方式，关键是不要让本地共享态只剩无语义的黑屏。
 
 另外要注意本地用户和远端用户的判断口径不同：
-- **远端用户摄像头流**：可以直接用 `participant.hasVideoStream === false` 判断是否显示占位层。
-- **本地用户摄像头流**：不要直接依赖 `participant.hasVideoStream`，应读取 `useDeviceState().cameraStatus` 判断本地摄像头是否关闭。
+- **远端用户摄像头流**：可以用 `participant.cameraStatus !== DeviceStatus.On` 判断是否显示占位层。
+- **本地用户摄像头流**：不要直接依赖成员列表里的本地摄像头字段，应读取 `useDeviceState().cameraStatus` 判断本地摄像头是否关闭。
 - **本地用户共享流**：可结合 `participantWithScreen` 与 `localParticipant` 判断当前共享者是否是自己，再决定是否展示本地共享提示态。
 
 ### 5. 避免挂件层拦截默认交互
@@ -107,7 +107,7 @@ const currentLayout = ref(RoomLayoutTemplate.GridLayout);
       <template #participantViewUI="{ participant, streamType }">
         <div class="participant-view-ui">
           <div
-            v-if="showCameraPlaceholder(participant.userId, participant.hasVideoStream, streamType)"
+            v-if="showCameraPlaceholder(participant, streamType)"
             class="camera-placeholder"
           >
             <span
@@ -150,20 +150,16 @@ function getDisplayName(participant: RoomParticipant) {
   return participant.nameCard || participant.userName || participant.userId;
 }
 
-function showCameraPlaceholder(
-  participantUserId: string,
-  hasVideoStream: boolean,
-  streamType: VideoStreamType,
-) {
+function showCameraPlaceholder(participant: RoomParticipant, streamType: VideoStreamType) {
   if (streamType === VideoStreamType.Screen) {
     return false;
   }
 
-  if (participantUserId === localParticipant.value?.userId) {
+  if (participant.userId === localParticipant.value?.userId) {
     return cameraStatus.value !== DeviceStatus.On;
   }
 
-  return hasVideoStream === false;
+  return participant.cameraStatus !== DeviceStatus.On;
 }
 </script>
 
@@ -538,7 +534,7 @@ function handleStreamDoubleClick(payload: {
    **Verify**: 检查模板切换是否全部基于 `RoomLayoutTemplate`。
 3. **不要让纯展示型挂件默认拦截交互** — 会影响双击、拖拽或移动端手势。  
    **Verify**: 检查挂件层是否使用 `pointer-events: none` 或把点击区限制在局部元素上。
-4. **不要直接用本地 `participant.hasVideoStream` 判断摄像头关闭** —— 本地设备开关状态应读取 `useDeviceState().cameraStatus`。  
+4. **不要直接用本地成员列表字段判断摄像头关闭** —— 本地设备开关状态应读取 `useDeviceState().cameraStatus`；远端占位可使用 `participant.cameraStatus`。  
    **Verify**: 检查本地 tile 的关闭态是否来自设备状态而不是本地 participant 流字段。
 5. **不要把本地共享流的黑底直接当作可接受默认态** —— 如果本地共享 tile 不展示真实预览，就应补共享中的语义化提示。  
    **Verify**: 检查本地共享流在无预览时是否仍只有空白 / 黑底且没有任何状态说明。

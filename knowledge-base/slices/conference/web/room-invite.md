@@ -31,7 +31,16 @@ await callUserToRoom({ roomId: 'demo_room', userIdList: ['user_002'], timeout: 6
 
 subscribeEvent(RoomEvent.onCallReceived, async ({ roomInfo }) => {
   await acceptCall({ roomId: roomInfo.roomId });
-  await joinRoom({ roomId: roomInfo.roomId });
+  await joinRoom({
+    roomId: roomInfo.roomId,
+    roomType: roomInfo.roomType,
+    password: roomInfo.password || undefined,
+  });
+});
+
+subscribeEvent(RoomEvent.onCallTimeout, ({ roomInfo }) => {
+  // 收口邀请弹层或本地呼叫中状态；超时本身不需要再 rejectCall。
+  console.info('room call timeout', roomInfo.roomId);
 });
 ```
 
@@ -43,7 +52,7 @@ subscribeEvent(RoomEvent.onCallReceived, async ({ roomInfo }) => {
    ▼
 被邀请人收到 RoomEvent.onCallReceived
    │
-   ├─ 接受 → acceptCall({ roomId }) → joinRoom({ roomId })
+   ├─ 接受 → acceptCall({ roomId }) → 由当前回调或外层生命周期继续 joinRoom({ roomId, roomType, password })
    ├─ 拒绝 → rejectCall({ roomId })
    ├─ 超时 → onCallTimeout 收口 UI
    └─ 其他设备已处理 → onCallHandledByOtherDevice 收口 UI
@@ -51,7 +60,7 @@ subscribeEvent(RoomEvent.onCallReceived, async ({ roomInfo }) => {
 
 ## 平台特有注意事项
 ### 1. `acceptCall()` 不等于已经进入会议
-接受邀请只是信令确认；真正进入房间仍需要继续调用 `joinRoom()`，两步不能省略其中任何一步。
+接受邀请只是信令确认；真正进入房间仍需要继续调用 `joinRoom()`。业务可以在 `acceptCall({ roomId })` 后通过自定义回调把 `roomId`、`password`、`roomType` 交给外层入会流程，也可以在同一个事件回调里直接接续 `joinRoom()`。关键是不要把 `acceptCall()` 本身当作“已经进房”。
 
 ### 2. 邀请弹层应统一监听取消、超时与多设备收口
 如果只处理收到邀请和接受，不处理 `onCallCancelled`、`onCallTimeout`、`onCallHandledByOtherDevice`，邀请 UI 很容易残留。
@@ -68,15 +77,15 @@ subscribeEvent(RoomEvent.onCallReceived, async ({ roomInfo }) => {
 ### 生成规则
 #### MUST（生成时必须包含）
 
-1. **把邀请确认与真正入会拆成两步** — 才能正确覆盖呼叫确认与实际进房两个阶段。  
-   **Verify**: 检查是否同时存在 `acceptCall(` 与 `joinRoom(`。
+1. **把邀请确认与真正入会拆成两个阶段** — 才能正确覆盖呼叫确认与实际进房。两阶段可以在同一个回调内串联，也可以通过自定义回调 / 外层生命周期衔接。  
+   **Verify**: 检查是否存在 `acceptCall(`，且接受后有继续触发 `joinRoom({ roomId, roomType, password })` 或等价入会流程。
 2. **在常驻层监听邀请事件并收口状态** — 任何页面都应能响应呼叫。  
    **Verify**: 检查是否存在 `subscribeEvent(RoomEvent.onCallReceived, ...)` 或等价监听逻辑。
 
 #### MUST NOT（生成时绝不能出现）
 
 1. **不要把 `acceptCall()` 当作最终进房动作** — 会造成“已接听但未进房”的悬空状态。  
-   **Verify**: 检查接受邀请后是否继续调用 `joinRoom()`。
+   **Verify**: 检查接受邀请后是否继续调用或转交到 `joinRoom()`。
 2. **不要忽略取消、超时和多设备处理事件** — 邀请弹窗容易残留。  
    **Verify**: 检查是否存在对应事件或兜底清理说明。
 
@@ -89,6 +98,6 @@ subscribeEvent(RoomEvent.onCallReceived, async ({ roomInfo }) => {
 | 层级 | 检查项 | 验证手段 | 预期结果 |
 |------|--------|----------|---------|
 | 1. 编译级 | 已导入 `useRoomState` 与 `RoomEvent` | 检查 `import` 语句 | 邀请相关 API 与事件可解析 |
-| 2. 静态规则级 | 接受邀请后继续进房 | 搜索 `acceptCall` 与 `joinRoom` | 存在两步链路 |
+| 2. 静态规则级 | 接受邀请后继续进房 | 搜索 `acceptCall` 与 `joinRoom` 或外层入会回调 | 存在两阶段链路 |
 | 3. 运行时级 | 收到邀请后可接受并进入会议 | 双账号联调邀请流程 | 接收端可成功进房 |
 | 4. 业务行为级 | 取消 / 超时 / 多设备处理时 UI 正确收口 | 模拟各种邀请结果 | 邀请弹层不会残留 |

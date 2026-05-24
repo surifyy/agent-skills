@@ -32,7 +32,7 @@ api_docs:
 在用户加入房间成功后，需要调用 `setActiveConversation()` 初始化聊天数据。建议监听 `currentRoom` 的变化来自动处理。
 
 ```ts
-import { watch } from 'vue';
+import { onUnmounted, watch } from 'vue';
 import { useConversationListState } from 'tuikit-atomicx-vue3/chat';
 import { useRoomState } from 'tuikit-atomicx-vue3/room';
 
@@ -40,15 +40,22 @@ const { currentRoom } = useRoomState();
 const { setActiveConversation } = useConversationListState();
 
 watch(() => currentRoom.value?.roomId, (roomId) => {
-  if (roomId) {
-    setActiveConversation(`GROUP${roomId}`);
+  if (!roomId) {
+    setActiveConversation('');
+    return;
   }
+
+  setActiveConversation(`GROUP${roomId}`);
 }, { immediate: true });
+
+onUnmounted(() => {
+  setActiveConversation('');
+});
 ```
 
 > **说明**：
 > - `GROUP` 为固定前缀，`setActiveConversation()` 参数必须为 `GROUP${roomId}`，否则无法正常收发消息。
-> - 在房间切换或退房时，建议同步重置或清空旧会话相关状态，避免消息错发至错误会话。
+> - 在房间切换、退房或聊天按钮组件卸载时，应同步 `setActiveConversation('')` 清空旧会话，避免消息错发至错误会话。
 
 ### 步骤二：获取消息列表
 
@@ -84,10 +91,15 @@ const {
 
 const { localParticipant } = useRoomParticipantState();
 const isMessageDisabled = computed(() => Boolean(localParticipant.value?.isMessageDisabled));
+const hasTextInput = computed(() => (
+  typeof inputRawValue.value === 'string'
+    ? inputRawValue.value.trim().length > 0
+    : inputRawValue.value.length > 0
+));
 
 const handleSend = async () => {
   if (isMessageDisabled.value) return;
-  if (!inputRawValue.value?.trim()) return;
+  if (!hasTextInput.value) return;
 
   try {
     await sendMessage();

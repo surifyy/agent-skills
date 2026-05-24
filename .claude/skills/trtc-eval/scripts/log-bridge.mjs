@@ -56,9 +56,22 @@ function injectNonceEnv(workspace, nonce) {
   if (existsSync(envPath)) {
     lines = readFileSync(envPath, "utf8")
       .split("\n")
-      .filter((line) => !line.startsWith("VITE_EVAL_RUN_NONCE="));
+      .filter(
+        (line) =>
+          !line.startsWith("VITE_EVAL_RUN_NONCE=") &&
+          !line.startsWith("VITE_EVAL_AUTO_RUN_FLOW="),
+      );
   }
   lines.push(`VITE_EVAL_RUN_NONCE=${nonce}`);
+  // Propagate EVAL_AUTO_RUN_FLOW (set by the orchestrator from cases.json's
+  // auto_run_flow[0]) into Vite's VITE_-prefixed namespace so env.ts's
+  // loadEnv() can read it via import.meta.env. Without this hop, the
+  // browser sees autoRunFlow=null and the AI's UI mounts instead of the
+  // deterministic SDK exercise — which leaves expected_events at 0/N.
+  const autoFlow = process.env.EVAL_AUTO_RUN_FLOW;
+  if (autoFlow && autoFlow.trim() !== "") {
+    lines.push(`VITE_EVAL_AUTO_RUN_FLOW=${autoFlow}`);
+  }
   writeFileSync(envPath, lines.join("\n") + "\n", "utf8");
 }
 
@@ -75,18 +88,29 @@ function injectNonceEnv(workspace, nonce) {
 // workspace (case_dir = parent of workspace) so log-bridge doesn't need an
 // extra CLI flag.
 // ---------------------------------------------------------------------------
-function injectTrtcCredsEnv(workspace) {
-  // <workspace> is "<case_dir>/workspace"; creds live one level up
+
+/**
+ * Parse <case_dir>/.eval-meta/launch.env and return a Map of KEY=value pairs.
+ * This is the SINGLE SOURCE OF TRUTH for TRTC test credentials at runtime —
+ * process.env may contain stale values from previous sessions.
+ */
+function readLaunchEnv(workspace) {
   const caseDir = dirname(workspace);
   const launchEnvPath = join(caseDir, ".eval-meta", "launch.env");
-  if (!existsSync(launchEnvPath)) return;
+  const source = new Map();
+  if (!existsSync(launchEnvPath)) return source;
 
   const raw = readFileSync(launchEnvPath, "utf8");
-  const source = new Map();
   for (const line of raw.split("\n")) {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
     if (m) source.set(m[1], m[2]);
   }
+  return source;
+}
+
+function injectTrtcCredsEnv(workspace) {
+  const source = readLaunchEnv(workspace);
+  if (source.size === 0) return;
 
   // Keys the browser bundle needs; Vite only exposes VITE_*-prefixed ones.
   const toVite = {
@@ -133,6 +157,22 @@ function probeTcp(host, port, timeoutMs) {
     socket.once("error", () => finish(false));
     setTimeout(() => finish(false), timeoutMs);
   });
+}
+
+// Find the first port in [start, start+span) that no one is listening on.
+// Returns the chosen port or null if every port in the range is occupied.
+//
+// Why this exists: every eval run hardcodes 5173 in the case orchestrator,
+// but a developer's own dev server (or the previous run's leftover vite)
+// frequently squats on it. Without preflight, vite would spawn, fail with
+// "Port 5173 is already in use", exit code=1, and dynamic eval would silently
+// score 0.4 (compile_bonus only) without ever loading the page.
+async function findFreePort(host, start, span) {
+  for (let p = start; p < start + span; p++) {
+    const occupied = await probeTcp(host, p, 200);
+    if (!occupied) return p;
+  }
+  return null;
 }
 
 async function waitForPort(host, port, attempts, intervalMs) {
@@ -193,13 +233,45 @@ async function main() {
     });
   }
 
-  // Step 2: spawn `npm run dev` inside the workspace
+  // Step 2: pick a free port (caller's --url is a hint; we may shift it).
+  // Vite's default 5173 is frequently squatted on by a developer's own dev
+  // server; without preflight, we'd silently inherit a 404 from whatever else
+  // is bound, or watch vite exit code=1 with no useful signal.
+  const host = "127.0.0.1";
+  const requestedPort = parsePort(url);
+  const chosenPort = await findFreePort(host, requestedPort, 20);
+  if (chosenPort === null) {
+    emit({
+      ts: nowIso(),
+      level: "error",
+      text: `log-bridge: no free port in [${requestedPort}, ${requestedPort + 20})`,
+      ok: false,
+    });
+    process.exit(1);
+  }
+  if (chosenPort !== requestedPort) {
+    emit({
+      ts: nowIso(),
+      level: "info",
+      text: `log-bridge: requested port ${requestedPort} occupied; using ${chosenPort}`,
+      ok: true,
+    });
+  }
+  const targetUrl = url.replace(`:${requestedPort}`, `:${chosenPort}`);
+
+  // Step 3: spawn `npm run dev`. We pass --port + --strictPort so vite either
+  // claims our chosen port or exits immediately — never silently shifts to a
+  // different port that puppeteer wouldn't be able to find.
   const viteEnv = { ...process.env, EVAL_RUN_NONCE: nonce };
-  const vite = spawn("npm", ["run", "dev"], {
-    cwd: workspace,
-    env: viteEnv,
-    stdio: ["ignore", "ignore", "pipe"],
-  });
+  const vite = spawn(
+    "npm",
+    ["run", "dev", "--", "--port", String(chosenPort), "--strictPort"],
+    {
+      cwd: workspace,
+      env: viteEnv,
+      stdio: ["ignore", "ignore", "pipe"],
+    },
+  );
   let viteExited = false;
   vite.on("exit", (code, signal) => {
     viteExited = true;
@@ -218,15 +290,13 @@ async function main() {
     }
   });
 
-  // Step 3: wait for the dev server to listen
-  const host = "127.0.0.1";
-  const port = parsePort(url);
-  const ready = await waitForPort(host, port, 30, 500);
+  // Step 4: wait for the dev server to listen
+  const ready = await waitForPort(host, chosenPort, 30, 500);
   if (!ready || viteExited) {
     emit({
       ts: nowIso(),
       level: "error",
-      text: `log-bridge: vite-not-ready host=${host} port=${port}`,
+      text: `log-bridge: vite-not-ready host=${host} port=${chosenPort}`,
       ok: false,
     });
     try {
@@ -235,7 +305,7 @@ async function main() {
     process.exit(1);
   }
 
-  // Step 4: launch Puppeteer and attach console listeners
+  // Step 5: launch Puppeteer and attach console listeners
   let puppeteer;
   try {
     puppeteer = (await import("puppeteer")).default;
@@ -256,7 +326,14 @@ async function main() {
   try {
     browser = await puppeteer.launch({
       headless: "new",
-      args: ["--no-sandbox", "--disable-dev-shm-usage"],
+      args: [
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--use-fake-ui-for-media-stream",
+        "--use-fake-device-for-media-stream",
+        "--use-gl=swiftshader",
+        "--enable-webgl",
+      ],
     });
   } catch (e) {
     emit({
@@ -273,7 +350,58 @@ async function main() {
 
   const page = await browser.newPage();
 
-  // Step 5: print the nonce marker BEFORE any console events so runtime_monitor
+  // Step 5a: install browser-side probes BEFORE the page loads. These run in
+  // the page context and emit JSON-tagged console.log lines that the host
+  // captures via `page.on('console', ...)` below. Tagging with `__probe`
+  // keeps the existing event extractor (`\bon\w+\b`) untouched while giving
+  // runtime_monitor a separate channel for runtime-health signals.
+  //
+  // Why each probe:
+  //  - window.error          → captures uncaught synchronous exceptions
+  //                            (e.g. "X is not a constructor", TypeError)
+  //  - unhandledrejection    → captures Promise rejections that nobody awaited
+  //                            (login failures, fetch crashes)
+  //  - console.warn override → captures Vue's "[Vue warn]" lifecycle warnings
+  //                            (e.g. "onUnmounted called when no instance")
+  //                            without polluting other warn output
+  await page.evaluateOnNewDocument(() => {
+    const tag = (probe, payload) =>
+      console.log(JSON.stringify({ __probe: probe, ...payload }));
+
+    window.addEventListener("error", (e) => {
+      tag("window_error", {
+        message: (e && e.message) || String(e),
+        stack: e && e.error && e.error.stack,
+        filename: e && e.filename,
+        lineno: e && e.lineno,
+      });
+    });
+
+    window.addEventListener("unhandledrejection", (e) => {
+      const reason = e && e.reason;
+      tag("unhandled_rejection", {
+        message: reason && reason.message ? reason.message : String(reason),
+        stack: reason && reason.stack,
+      });
+    });
+
+    const origWarn = console.warn.bind(console);
+    console.warn = function (...args) {
+      try {
+        const text = args
+          .map((a) => (typeof a === "string" ? a : (a && a.toString && a.toString()) || String(a)))
+          .join(" ");
+        if (text.startsWith("[Vue warn]")) {
+          tag("vue_warn", { text });
+        }
+      } catch {
+        /* swallow probe errors — never break the host page */
+      }
+      origWarn.apply(console, args);
+    };
+  });
+
+  // Step 5b: print the nonce marker BEFORE any console events so runtime_monitor
   // always finds it even if the page hangs. Must be the exact literal string
   // `TRTC_EVAL_NONCE=<nonce>` (see scripts/runtime_monitor.py:88-89).
   process.stdout.write(`TRTC_EVAL_NONCE=${nonce}\n`);
@@ -291,6 +419,20 @@ async function main() {
       text,
       ok: msg.type() !== "error",
     };
+    // If this console line is a probe payload (JSON with __probe), surface
+    // the probe key at the top level so runtime_monitor can group by probe
+    // type without re-parsing the embedded JSON.
+    const trimmed = text && text.trim();
+    if (trimmed && trimmed.startsWith("{")) {
+      try {
+        const obj = JSON.parse(trimmed);
+        if (obj && typeof obj.__probe === "string") {
+          payload.__probe = obj.__probe;
+        }
+      } catch {
+        /* not JSON, fall through */
+      }
+    }
     const ev = extractEvent(text);
     if (ev) payload.event = ev;
     emit(payload);
@@ -299,7 +441,9 @@ async function main() {
     emit({
       ts: nowIso(),
       level: "error",
+      __probe: "page_error",
       text: `[pageerror] ${err && err.message ? err.message : String(err)}`,
+      stack: err && err.stack,
       ok: false,
     });
   });
@@ -308,22 +452,169 @@ async function main() {
     emit({
       ts: nowIso(),
       level: "warn",
+      __probe: "request_failed",
       text: `[requestfailed] ${req.url()} :: ${failure ? failure.errorText : "unknown"}`,
+      url: req.url(),
+      reason: failure ? failure.errorText : "unknown",
       ok: false,
     });
   });
+  // 4xx/5xx responses count as request failures too (puppeteer fires
+  // requestfailed only on transport errors, not HTTP error status codes).
+  page.on("response", (resp) => {
+    const status = resp.status();
+    if (status >= 400) {
+      emit({
+        ts: nowIso(),
+        level: "warn",
+        __probe: "request_failed",
+        text: `[response ${status}] ${resp.url()}`,
+        url: resp.url(),
+        reason: `HTTP ${status}`,
+        ok: false,
+      });
+    }
+  });
 
   try {
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
   } catch (e) {
     emit({
       ts: nowIso(),
       level: "error",
-      text: `log-bridge: page.goto failed url=${url} err=${e.message}`,
+      text: `log-bridge: page.goto failed url=${targetUrl} err=${e.message}`,
       ok: false,
     });
     // Do not exit — runtime.log already has the nonce marker and the error.
     // Let orchestrator's 60s timer run its course, SIGTERM will clean up.
+  }
+
+  // Step 5d: AI self-driven mode — detect window.__evalAutoRun
+  //
+  // If the AI generated an eval-autorun.ts that registers itself on
+  // window.__evalAutoRun, invoke it with TRTC test credentials. This is
+  // the "optimizer v2" path that replaces the DSL-based autoRunCoordinator
+  // for cases that omit auto_run_flow.
+  //
+  // Detection waits up to 5 seconds for the function to appear (the page
+  // may still be mounting Vue/React components). If it never appears,
+  // the existing autoRunCoordinator path (triggered by EVAL_AUTO_RUN_FLOW
+  // env var) handles execution.
+  try {
+    // Wait briefly for the app to mount and register __evalAutoRun
+    const hasAutoRun = await page.evaluate(() => {
+      return new Promise((resolve) => {
+        // Check immediately
+        if (typeof window.__evalAutoRun === "function") {
+          resolve(true);
+          return;
+        }
+        // Poll for up to 5 seconds (app may still be mounting)
+        let attempts = 0;
+        const timer = setInterval(() => {
+          attempts++;
+          if (typeof window.__evalAutoRun === "function") {
+            clearInterval(timer);
+            resolve(true);
+          } else if (attempts >= 25) {
+            clearInterval(timer);
+            resolve(false);
+          }
+        }, 200);
+      });
+    });
+
+    if (hasAutoRun) {
+      emit({
+        ts: nowIso(),
+        level: "info",
+        text: "[log-bridge] AI-generated evalAutoRun detected, invoking self-driven mode",
+        ok: true,
+      });
+
+      // Build env payload from launch.env (single source of truth for creds).
+      // NEVER read process.env.TRTC_TEST_* here — it may contain stale values
+      // from a previous session that shadow the correct config.json credentials.
+      const creds = readLaunchEnv(workspace);
+      const sdkAppId = creds.get("TRTC_TEST_SDKAPPID") || "";
+      const userId = creds.get("TRTC_TEST_USERID") || "";
+      const userSig = creds.get("TRTC_TEST_USERSIG") || "";
+      const roomId = `eval_${nonce.slice(0, 8)}`;
+
+      await page.evaluate(
+        async (env) => {
+          try {
+            await window.__evalAutoRun(env);
+          } catch (err) {
+            console.error("[eval] fatal:", err && err.message ? err.message : String(err));
+          }
+        },
+        {
+          sdkAppId: sdkAppId ? Number(sdkAppId) : 0,
+          userId,
+          userSig,
+          roomId,
+        },
+      );
+    } else {
+      emit({
+        ts: nowIso(),
+        level: "info",
+        text: "[log-bridge] No evalAutoRun found, using existing autoRunCoordinator flow",
+        ok: true,
+      });
+    }
+  } catch (e) {
+    emit({
+      ts: nowIso(),
+      level: "warn",
+      text: `[log-bridge] evalAutoRun detection/invocation error: ${e.message}`,
+      ok: false,
+    });
+    // Non-fatal — the autoRunCoordinator path or SIGTERM timeout will handle it
+  }
+
+  // Step 5e: DOM assertion probes — after eval-autorun has had time to execute
+  // and Vue components have mounted, snapshot the DOM to check if the AI's UI
+  // was actually rendered. This probe feeds runtime_monitor's dom_has_content
+  // signal, which gates the 0/0 = full-score loophole.
+  try {
+    // Wait for Vue components to mount + eval-autorun to complete
+    await new Promise((r) => setTimeout(r, 3000));
+    const domProbe = await page.evaluate(() => {
+      const app = document.getElementById("app");
+      if (!app) return { hasContent: false, childCount: 0, hasSkeleton: false, textLength: 0, interactiveElements: 0 };
+      const textLength = app.innerText.trim().length;
+      const interactiveElements = app.querySelectorAll(
+        "button, input, select, textarea, [role='button'], a[href]"
+      ).length;
+      return {
+        hasContent: textLength >= 50,
+        childCount: app.children.length,
+        hasSkeleton: app.querySelector(".eval-skeleton") !== null,
+        textLength,
+        interactiveElements,
+      };
+    });
+    emit({
+      ts: nowIso(),
+      level: "info",
+      __probe: "dom_snapshot",
+      text: `[dom] content=${domProbe.hasContent} children=${domProbe.childCount} skeleton=${domProbe.hasSkeleton} textLen=${domProbe.textLength} interactive=${domProbe.interactiveElements}`,
+      ok: domProbe.hasContent,
+      hasContent: domProbe.hasContent,
+      childCount: domProbe.childCount,
+      hasSkeleton: domProbe.hasSkeleton,
+      textLength: domProbe.textLength,
+      interactiveElements: domProbe.interactiveElements,
+    });
+  } catch (e) {
+    emit({
+      ts: nowIso(),
+      level: "warn",
+      text: `[log-bridge] DOM probe error: ${e.message}`,
+      ok: false,
+    });
   }
 
   // Step 6: SIGTERM cascade — close browser, then kill vite (SIGKILL fallback

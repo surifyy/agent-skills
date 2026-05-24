@@ -1,18 +1,93 @@
-<!-- DO NOT EDIT — generated from ai-instructions/ by .claude/skills/trtc/room-builder/tools/render_ai_instructions.py. Edit the source markdown and re-run the renderer instead. -->
+<!-- DO NOT EDIT — generated from ai-instructions/ by skills/trtc/room-builder/tools/render_ai_instructions.py. Edit the source markdown and re-run the renderer instead. -->
 
 # ui-mode
 
 ## When this rule applies
 
-Only when `.trtc-session.yaml` at the repo root has `ui_mode: full-ui`. If
-the file is missing, or `ui_mode` is unset / null / `headless`, this rule
-does not apply — fall back to whatever the tool's default behavior is.
+Only when `.trtc-session.yaml` at the repo root has `ui_mode: official-roomkit`
+or `ui_mode: full-ui`. If the file is missing, or `ui_mode` is unset / null /
+`headless`, this rule does not apply — fall back to whatever the tool's default
+behavior is.
+
+## Medical new-project shortcut
+
+When the user request is for medical online consultation (for example
+`1v1-video-consultation`, remote diagnosis, online medical consultation,
+doctor-patient video visit) **and** the task is to generate a brand-new
+project rather than integrate into an existing app, bypass the normal full-ui
+theme workflow entirely. Do not run `trtc_prepare_ui.py`, do not generate Vue
+SFCs by hand, and do not run UI or medical verifiers.
+
+Instead, directly copy the bundled medical template project:
+
+```bash
+skills/trtc/room-builder/templates/scenarios/medical-consultation/
+```
+
+to the user's local target project directory, preserving the project exactly
+as packaged. In the handoff or integration notes, tell the customer to use
+`pnpm install` for dependencies and `pnpm dev` for local development. Do not
+recommend `npm install` / `npm run dev`; this medical template starts much
+slower with npm and can show a blank first screen for a while.
+
+This shortcut applies only to brand-new medical consultation projects. Existing
+project integration still follows the normal scenario / official-roomkit /
+full-ui rules below.
+
+## Official RoomKit integration mode
+
+When the customer asks to **integrate a conference / meeting into an existing
+Vue 3 app** (for example "集成会议", "接入会议", "add video meeting to my app",
+"official RoomKit", "TUIRoomKit") and does not explicitly ask for a fully
+custom rebuilt meeting UI, use the official RoomKit integration path instead
+of the meeting-classic full-ui theme workflow.
+
+In this mode:
+
+1. Integrate the official Web RoomKit package. For UI customization APIs,
+   verify that the resolved `@tencentcloud/roomkit-web-vue3` version is
+   `>=5.4.3` (installing `@tencentcloud/roomkit-web-vue3@5` is acceptable only
+   when the lockfile resolves to at least `5.4.3`), plus its documented peer
+   packages `tuikit-atomicx-vue3`,
+   `@tencentcloud/uikit-base-component-vue3`, and
+   `@tencentcloud/universal-api`.
+2. Render the official components (`ConferenceMainView` for PC and
+   `ConferenceMainViewH5` for H5) inside `UIKitProvider`.
+3. Use the official `conference` API for auth and room lifecycle:
+   `conference.login()`, `conference.setSelfInfo()`,
+   `conference.createAndJoinRoom()`, `conference.joinRoom()`,
+   `conference.leaveRoom()`, `conference.endRoom()`, and `RoomEvent`
+   listeners as appropriate for the customer's flow.
+4. For UserSig, reuse the existing MCP / local-signing / backend-issued
+   credential flow. Do not generate `src/utils/usersig.ts`, do not expose
+   `SecretKey` in client code, and do not use `crypto-js`, `pako`,
+   `HmacSHA256`, or `tls-sig-api-v2` to sign UserSig in browser code.
+5. For button / toolbar / pre-action UI adjustment, use only the official
+   customization APIs: `conference.setWidgetVisible()`,
+   `conference.registerWidget()`, and `conference.onWill()`.
+6. Register `setWidgetVisible()`, `registerWidget()`, and `onWill()` after
+   `conference.login()` and before `conference.createAndJoinRoom()` /
+   `conference.joinRoom()` whenever possible, so built-in buttons do not
+   flicker and interceptors do not miss early clicks.
+7. Use `conference.setFeatureConfig()` only for the feature configuration it
+   documents. In particular, configure `shareLink` immediately after
+   `conference.createAndJoinRoom()` / `conference.joinRoom()` succeeds, so
+   the final `roomId` is known.
+8. Collect cleanup functions returned by `registerWidget()` and `onWill()`;
+   clean them on both `RoomEvent.ROOM_LEAVE` and `RoomEvent.ROOM_DISMISS`.
+
+Do **not** run `trtc_prepare_ui.py`, copy `src/themes/meeting-classic/`,
+generate `ui-*` based meeting Vue SFCs, or run `trtc_verify_ui.py` for official
+RoomKit integration mode. The acceptance check for this mode is that the app
+uses the official package/components and official UI customization APIs, not
+the local meeting-classic theme catalog.
 
 ## Mandatory workflow
 
-`ui_mode: full-ui` means the user has opted into a styled meeting UI built
-on the meeting-classic uikit theme. Three things must be true of the user
-project (`project_state.project_root` in the session file):
+Except for the two bypasses above, `ui_mode: full-ui` means the user has opted
+into a styled meeting UI built on the meeting-classic uikit theme. Three things
+must be true of the user project (`project_state.project_root` in the session
+file):
 
 1. `src/themes/meeting-classic/` is the full theme copy.
 2. `src/main.ts` (or `main.js`) imports `'@/themes/meeting-classic/index.css'`.
@@ -21,7 +96,7 @@ project (`project_state.project_root` in the session file):
 These are wired up by:
 
 ```bash
-python3 .claude/skills/trtc/room-builder/guardrails/trtc_prepare_ui.py
+python3 skills/trtc/room-builder/guardrails/trtc_prepare_ui.py
 ```
 
 The script is idempotent — safe to run at any time. **Run it before
@@ -33,12 +108,12 @@ half-wired project.
 
 Every interactive or visually distinct element in your generated `.vue`
 templates must use a `ui-*` class drawn from the catalog at
-`.claude/skills/trtc/room-builder/uikit/references/component-catalog.md`.
+`skills/trtc/room-builder/uikit/references/component-catalog.md`.
 
 The minimum is enforced (per file ≥ 3 classes; project total ≥ 30) by:
 
 ```bash
-python3 .claude/skills/trtc/room-builder/guardrails/trtc_verify_ui.py --file <path-to-vue>
+python3 skills/trtc/room-builder/guardrails/trtc_verify_ui.py --file <path-to-vue>
 ```
 
 If this exits 2, read the stderr — it names the file and the count, and
@@ -49,7 +124,7 @@ points at the catalog. Fix the file before continuing.
 Run the project-wide check:
 
 ```bash
-python3 .claude/skills/trtc/room-builder/guardrails/trtc_verify_ui.py
+python3 skills/trtc/room-builder/guardrails/trtc_verify_ui.py
 ```
 
 Only declare done when this exits 0. The Stop / pre-commit hook will run

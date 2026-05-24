@@ -13,7 +13,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.lib import template_fetcher, code_injector, builder, device_picker, launcher, dep_installer
-from scripts.lib.eval_config import skill_root
+from scripts.lib import creds_normalizer
+from scripts.lib.eval_config import skill_root, load_config, EvalConfigError
 from scripts.lib.platforms import get_adapter
 from scripts.lib.schemas import Case
 
@@ -48,29 +49,17 @@ def main() -> int:
 
         # Web: apply framework profile BEFORE injection so main.ts / vite.config
         # reflect the target framework, and so `npm ci` picks up vue/react deps.
+        # Framework is auto-detected from AI output (vue SFC → vue3, JSX → react, etc.)
         framework: str | None = None
         if case.platform == "web":
             from scripts.lib import web_profile
-            framework = case.framework or web_profile.detect_web_framework(
+            framework = web_profile.detect_web_framework(
                 case_dir / "ai_extracted_code"
             )
             web_profile.apply_web_profile(workspace, framework)
             meta = workspace / ".eval-meta"
             meta.mkdir(exist_ok=True)
             (meta / "framework.txt").write_text(framework)
-
-        # Merge case.extra_dependencies into dependencies.json (if any). This
-        # lets a case pull in SDK packages that the AI prompt has not yet been
-        # updated to declare itself.
-        if case.extra_dependencies:
-            dep_path = case_dir / "dependencies.json"
-            cur = json.loads(dep_path.read_text()) if dep_path.exists() else {}
-            for k, lst in case.extra_dependencies.items():
-                cur.setdefault(k, [])
-                for item in lst:
-                    if item not in cur[k]:
-                        cur[k].append(item)
-            dep_path.write_text(json.dumps(cur, indent=2, ensure_ascii=False))
 
         code_injector.inject(
             workspace=workspace,
@@ -80,6 +69,71 @@ def main() -> int:
             framework=framework,
             case_dir=case_dir,
         )
+
+        # Generate the autorun .ts files for this case from the DSL
+        # (templates/web-demo/src/autorun/ now ships only _runtime.ts and
+        # _builtin/<id>.ts; case-specific flows are rendered into the
+        # workspace at build time so cases.json is the single source of
+        # truth). Web only — autorun is a browser-side concept.
+        #
+        # Optimizer v2: when auto_run_flow is an empty list [], the AI is
+        # expected to self-drive via eval-autorun.ts (registered as
+        # window.__evalAutoRun). Skip flow_codegen in that case — there is
+        # no DSL to compile, and the autoRunCoordinator is not needed.
+        if case.platform == "web":
+            flow_ids = case.autorun_flow_ids()
+            if flow_ids:
+                from scripts.lib import flow_codegen
+                flow_codegen.generate(
+                    case=case,
+                    workspace=workspace,
+                    builtin_root=skill_root() / "templates/web-demo/src/autorun/_builtin",
+                )
+            else:
+                # Self-driven mode: still need a minimal autoRunCoordinator
+                # stub so the template's main.ts can import it without build
+                # errors. The actual execution is driven by __evalAutoRun.
+                autorun_dir = workspace / "src" / "autorun"
+                autorun_dir.mkdir(parents=True, exist_ok=True)
+                (autorun_dir / "autoRunCoordinator.ts").write_text(
+                    '// Stub for self-driven eval mode (optimizer v2).\n'
+                    '// The AI-generated eval-autorun.ts drives execution via window.__evalAutoRun.\n'
+                    'export async function runAutoFlow(_flowIds: string): Promise<void> {\n'
+                    '  // No DSL flows configured — self-driven mode.\n'
+                    '  // log-bridge will detect window.__evalAutoRun and invoke it.\n'
+                    '}\n'
+                )
+
+        # Credential normalization (web only, post-injection):
+        # AI code typically writes literal placeholders like
+        #   sdkAppId: 1400000000, userId: 'user_001', userSig: 'YOUR_USERSIG'
+        # straight from slice examples. log-bridge already exposes the test
+        # account via VITE_TRTC_TEST_*, but AI doesn't know about that
+        # convention and shouldn't be coerced into knowing — it would pollute
+        # the slice's "userSig must be backend-issued" guidance.
+        # We rewrite those placeholders inside workspace/src/generated/ so the
+        # built app actually authenticates. ai_extracted_code/ is left alone
+        # so static evaluation continues to score the AI's real output.
+        if case.platform == "web":
+            try:
+                eval_cfg = load_config()
+                norm = creds_normalizer.normalize_creds_in_workspace(
+                    workspace=workspace,
+                    account=eval_cfg.trtc_test_account,
+                )
+                (case_dir / "creds_normalization.json").write_text(
+                    json.dumps(norm, indent=2, ensure_ascii=False)
+                )
+            except EvalConfigError as e:
+                # Missing creds is fatal for any meaningful dynamic eval, but
+                # we surface it as a build error rather than crashing here so
+                # the orchestrator records a clean failure.
+                print(json.dumps({
+                    "phase": "build", "exit_code": 7,
+                    "error": "creds_unavailable", "detail": str(e),
+                }))
+                return 7
+
         # Install dependencies declared by AI (e.g., CocoaPods)
         dep_file = case_dir / "dependencies.json"
         if dep_file.exists():

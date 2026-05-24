@@ -4,6 +4,77 @@
 
 本项目将 TRTC 的产品知识拆解为**原子能力片段（Slice）**，并通过 **Claude Code Skills**、**Cursor Rules** 和 **OpenAI Codex CLI (AGENTS.md)** 提供智能搜索、代码校验、场景引导和新手入门等交互能力，让开发者在对话中完成从零到上线的集成过程。
 
+## 快速安装
+
+### Claude Code / CodeBuddy
+
+```bash
+/plugin marketplace add your-org/trtc-ai-integration
+/plugin install trtc-ai-setup
+```
+
+### Cursor
+
+```bash
+/add-plugin trtc-ai-setup
+```
+
+### Codex CLI
+
+```bash
+/plugins
+# 搜索 "trtc-ai-setup" → Install
+```
+
+### 本地开发测试
+
+```bash
+claude --plugin-dir /path/to/trtc-ai-integration
+```
+
+## 项目结构
+
+```
+trtc-ai-integration/
+├── .claude-plugin/plugin.json          # Claude Code / CodeBuddy Plugin 入口
+├── .cursor-plugin/plugin.json          # Cursor Plugin 入口
+├── .codex-plugin/plugin.json           # Codex Plugin 入口
+├── .codebuddy-plugin/plugin.json       # CodeBuddy Plugin 入口
+│
+├── skills/                             # Plugin Skills（用户安装后自动加载）
+│   ├── trtc/                           #   路由入口 — 识别产品/平台，分发到子 skill
+│   │   └── room-builder/              #   UI 模板与主题资产（内部 skill，用户不直接调用）
+│   ├── trtc-onboarding/               #   新手引导 — Demo / 集成 / 排障 / 扩展
+│   ├── trtc-search/                   #   智能搜索 — 7 策略匹配 + 4 级 Fallback
+│   ├── trtc-apply/                    #   代码校验 — 生成生产级代码 + 自我校验
+│   ├── trtc-docs/                     #   文档问答 — 计费/配额/错误码/API 对比
+│   └── trtc-topic/                    #   场景引导 — Checkpoint 式分步教程
+│
+├── hooks/hooks.json                    # Plugin Hooks（SessionStart/PreToolUse/PostToolUse/Stop）
+├── knowledge-base/                     # 结构化知识层（slices + scenarios + index）
+├── llms.txt + llms/                    # llms.txt 标准模板（供外部 LLM 发现文档）
+│
+├── CLAUDE.md                           # 维护者开发本仓库时的 AI 指令
+├── AGENTS.md                           # Codex / Aider / Cline 兼容入口
+├── CODEBUDDY.md                        # CodeBuddy 兼容入口
+│
+├── .claude/skills/trtc-eval/           # 维护者专属：评测工具（不随 plugin 分发）
+├── ai-instructions/                    # 维护者专属：跨工具指令源
+└── tests/                              # 维护者专属：单元测试
+```
+
+## 支持的产品
+
+| 产品 | 说明 |
+|------|------|
+| **Chat** | 即时通信（消息、会话、群组） |
+| **Call** | 音视频通话（1v1 / 群组） |
+| **RTC Engine** | 实时音视频引擎 |
+| **Live** | 直播（推流 / 拉流 / 连麦） |
+| **Conference** | 视频会议（多人会议、在线教育） |
+
+**支持平台**：Web / Android / iOS / Flutter / Electron / Unity
+
 ## 核心理念
 
 ```
@@ -15,59 +86,6 @@
 - **代码生成与校验**：基于 Slice 知识生成生产级代码，并通过约束规则 + 编译验证自我校验
 - **渐进引导**：通过场景（Scenario）按步骤引导完整功能集成
 - **智能兜底**：7 层搜索策略 + 4 级 Fallback，确保用户总能得到有效回答
-
-## 项目结构
-
-> **图例**：🔵 = 对外（随 skill 分发到用户机器）；⚪ = 内部（仅维护者使用，不对外）
-
-```
-ai-integration/
-├── 🔵 .claude/skills/                         # Claude Code Skills（每个 skill 都是顶层条目）
-│   ├── trtc/SKILL.md                         #   路由入口 — 识别产品/平台，分发到子 skill
-│   ├── trtc-onboarding/SKILL.md              #   新手引导 — Demo 运行 / 集成教程 / 排障 / 扩展
-│   ├── trtc-search/SKILL.md                  #   智能搜索 — 7 策略匹配 + 4 级 Fallback
-│   ├── trtc-apply/SKILL.md                   #   代码生成与校验 — 生成生产级代码 + 自我校验
-│   ├── trtc-topic/SKILL.md                   #   场景引导 — Checkpoint 式分步教程
-│   └── trtc/room-builder/                    #   UI 模板与主题资产
-│       ├── references/                       #     scenarios.yaml（单一数据源）+ 渲染产物
-│       ├── uikit/assets/themes/              #     主题资产（meeting-classic 等）
-│       ├── ⚪ MAINTAINING-SCENARIOS.md        #     维护者文档（如何加新场景/主题）
-│       ├── 🔵 guardrails/                     #     hook 调（用户机器必须有）
-│       │   ├── trtc_prepare_ui.py            #       SessionStart：资产准备
-│       │   ├── trtc_verify_ui.py             #       Stop / PostToolUse：资产校验
-│       │   ├── verify_ui_post_write.sh       #       PostToolUse 胶水
-│       │   └── lib/{session_state,theme_registry}.py
-│       └── ⚪ tools/                          #     维护者跑（用户不调）
-│           ├── render_ai_instructions.py     #       ai-instructions/ → CLAUDE.md / AGENTS.md / .cursor/rules/
-│           └── render_scenario_mapping.py    #       scenarios.yaml → scenario-mapping.md
-│
-├── 🔵 .claude/settings.json                   # Claude Code hooks 注册（SessionStart / PostToolUse / Stop）
-│
-├── 🔵 .cursor/rules/                          # Cursor Rules（Cursor IDE 适配层）
-│   ├── trtc-router.mdc / trtc-onboarding.mdc / trtc-search.mdc / trtc-docs.mdc / trtc-topic.mdc / trtc-apply.mdc
-│   └── ui-mode.mdc                           #   ⚙ 由 ai-instructions/ui-mode.md 渲染生成
-│
-├── 🔵 AGENTS.md                               # ⚙ 由 ai-instructions/ 渲染生成
-│                                             #   OpenAI Codex CLI / Aider / Cline / CodeBuddy 自动读取
-├── 🔵 CLAUDE.md / CODEBUDDY.md                # ⚙ 派生入口
-│
-├── 🔵 knowledge-base/                         # 结构化知识层（search/apply 读）
-│   ├── index.yaml                            #   全量索引（产品/Slice/场景/跨产品关系）
-│   ├── slice-spec.md                         #   Slice 编写规范
-│   ├── slices/                               #   原子能力片段（按产品 → 平台组织）
-│   └── scenarios/                            #   场景组合（多 Slice 串联的完整流程）
-│
-├── 🔵 llms.txt + llms/                        # llms.txt 标准模板（供外部 LLM 发现文档）
-│
-├── ⚪ ai-instructions/                        # 工具无关的指令源（用户拿派生产物，不读源）
-│   └── ui-mode.md                            #   渲染到 CLAUDE.md / AGENTS.md / .cursor/rules/
-│
-├── ⚪ tests/unit/                             # 单元测试（pytest，仅维护者跑）
-├── ⚪ bootstrap.sh                            # 维护者一键安装 + 渲染派生
-└── 🔵 .claude/skills/trtc-eval/               # 评测工具 skill（独立体系）
-```
-
-**分发规则**：插件市场打包 / 命令行安装时只下发 🔵 标记的部分，⚪ 标记的（顶层 `tests/`、`ai-instructions/`、`bootstrap.sh`，以及 skill 内的 `room-builder/tools/`、`room-builder/MAINTAINING-SCENARIOS.md`）即便物理路径在 skill 树下也只供维护者使用，用户不会调用，不暴露入口。
 
 ## 核心概念
 
@@ -89,7 +107,7 @@ Slice 有两类来源：
 
 ### ai-instructions（跨工具单一指令源）
 
-`ai-instructions/*.md` 是**工具无关**的指令源文件，由 `.claude/skills/trtc/room-builder/tools/render_ai_instructions.py` 自动渲染到各工具的入口位置：
+`ai-instructions/*.md` 是**工具无关**的指令源文件，由 `skills/trtc/room-builder/tools/render_ai_instructions.py` 自动渲染到各工具的入口位置：
 
 | 源文件 | 渲染目标 | 形态 |
 |---|---|---|
@@ -99,7 +117,7 @@ Slice 有两类来源：
 
 **好处**：跨 Claude Code / Cursor / Codex / Aider / CodeBuddy 等工具共享一份指令，改一次同步全工具，避免多处漂移。
 
-`bootstrap.sh` 跑完会自动执行渲染；CI 用 `python3 .claude/skills/trtc/room-builder/tools/render_ai_instructions.py --check` 检查源文件改动后是否忘记重新渲染。
+`bootstrap.sh` 跑完会自动执行渲染；CI 用 `python3 skills/trtc/room-builder/tools/render_ai_instructions.py --check` 检查源文件改动后是否忘记重新渲染。
 
 ### Hooks（Claude Code 强制约束）
 
@@ -107,9 +125,9 @@ Slice 有两类来源：
 
 | 时机 | 调用 | 作用 |
 |---|---|---|
-| `SessionStart` | `python3 .claude/skills/trtc/room-builder/guardrails/trtc_prepare_ui.py` | 会话启动时自动 cp theme + 改 `main.ts` + 改 `index.html`；幂等 |
-| `PostToolUse(Write\|Edit)` | `bash .claude/skills/trtc/room-builder/guardrails/verify_ui_post_write.sh` | 每次写 `.vue` 后立即校验 `ui-*` class 数量；不达标 stderr 反馈给模型 |
-| `Stop` | `python3 .claude/skills/trtc/room-builder/guardrails/trtc_verify_ui.py` | 模型声明完成前做项目级总闸校验 |
+| `SessionStart` | `python3 skills/trtc/room-builder/guardrails/trtc_prepare_ui.py` | 会话启动时自动 cp theme + 改 `main.ts` + 改 `index.html`；幂等 |
+| `PostToolUse(Write\|Edit)` | `bash skills/trtc/room-builder/guardrails/verify_ui_post_write.sh` | 每次写 `.vue` 后立即校验 `ui-*` class 数量；不达标 stderr 反馈给模型 |
+| `Stop` | `python3 skills/trtc/room-builder/guardrails/trtc_verify_ui.py` | 模型声明完成前做项目级总闸校验 |
 
 > 同样的 `trtc_verify_ui.py` 也可以被 git pre-commit hook 调，作为跨工具的最后一道防线。
 
@@ -179,10 +197,10 @@ Slice 有两类来源：
 
 | 工具 | 适配文件 | 触发方式 |
 |------|---------|---------|
-| **Claude Code** | `.claude/skills/trtc/`、`CLAUDE.md`、`.claude/settings.json`（hooks） | `/trtc` slash command + 自动 hook 强制约束 |
-| **Cursor** | `.cursor/rules/*.mdc` | 关键词触发 / `alwaysApply: true` 自动注入 |
-| **OpenAI Codex CLI / Aider / Cline / CodeBuddy** | `AGENTS.md`（项目根目录） | 项目会话启动时自动注入 |
-| 任何工具 | `.claude/skills/trtc/room-builder/guardrails/trtc_verify_ui.py` 等命令行脚本 | 通过 Bash 直接调，作为 ground-truth 校验 |
+| **Claude Code** | `skills/`、`CLAUDE.md`、`hooks/hooks.json` | Plugin 自动加载 skills + hooks |
+| **Cursor** | `skills/` | Plugin skills 自动注入 |
+| **OpenAI Codex CLI / Aider / Cline / CodeBuddy** | `AGENTS.md`、`CODEBUDDY.md` | 项目会话启动时自动注入 |
+| 任何工具 | `skills/trtc/room-builder/guardrails/trtc_verify_ui.py` 等命令行脚本 | 通过 Bash 直接调，作为 ground-truth 校验 |
 
 > **设计原则**：
 > - **Layer 2 知识库**是单一数据源，多种工具共享同一份 `knowledge-base/`，不重复维护。
@@ -193,14 +211,13 @@ Slice 有两类来源：
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Layer 3: Skills / Rules（用户交互层）                             │
-│  Claude Code  →  .claude/skills/trtc/  +  .claude/settings.json  │
-│                  （SKILL.md 路由 + hooks 强制约束）                 │
-│  Cursor       →  .cursor/rules/        (trtc-router.mdc 路由)    │
-│  Codex CLI    →  AGENTS.md             (项目根目录自动注入)        │
+│  Layer 3: Skills（用户交互层）— Plugin 分发                        │
+│  Claude Code  →  skills/ + hooks/hooks.json                      │
+│  Cursor       →  skills/ (Plugin skills)                         │
+│  Codex CLI    →  AGENTS.md / CODEBUDDY.md                        │
 │                                                                  │
-│  ↑ AGENTS.md / CLAUDE.md / .cursor/rules/{...}.mdc 部分内容       │
-│    由 ai-instructions/ 单一指令源派生                              │
+│  ↑ CLAUDE.md / AGENTS.md 部分内容由 ai-instructions/ 单一指令源    │
+│    派生                                                           │
 ├─────────────────────────────────────────────────────────────────┤
 │  Layer 2: Knowledge Base（结构化知识层）— 多种工具共享              │
 │  index.yaml → slices/ + scenarios/                               │

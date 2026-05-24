@@ -44,7 +44,6 @@ const { joinRoom, currentRoom } = useRoomState();
 
 await joinRoom({
   roomId: 'demo_room',
-  options: {},
 });
 
 console.log(currentRoom.value?.roomId);
@@ -134,7 +133,7 @@ onUnmounted(() => {
 决定当前路径：创建会议 或 加入已有会议
    │
    ├─ 房主端 → createAndJoinRoom({ roomId, options })
-   └─ 成员端 → joinRoom({ roomId, options: {} })
+   └─ 成员端 → joinRoom({ roomId })
    │
    ▼
 以 currentRoom 作为会议内真实状态来源
@@ -154,7 +153,7 @@ onUnmounted(() => {
 ### 3. 按业务目标区分 `createAndJoinRoom()` 与 `joinRoom()`
 如果当前用户就是房主 / 发起人，需要立即创建并进入一场新会议，应使用 `createAndJoinRoom()`；如果房间已经由发起人、会议列表、预约系统或服务端预先创建好，应使用 `joinRoom()`；如果双方只知道同一个 `roomId`，但无法预先判断房间是否存在，也更适合使用 `createAndJoinRoom()` 承接“存在则加入，不存在则创建”的场景。
 
-调用 `joinRoom()` 时应显式传入 `options`；如果当前没有额外入会参数，也建议写成 `joinRoom({ roomId, options: {} })`，避免遗漏必填结构。
+调用 `joinRoom()` 时只需要传入 `roomId`；如果是密码房，再额外传入顶层 `password` 字段，例如 `joinRoom({ roomId, password })`。不要把密码或空对象包进 `options`，当前 Web API 的加入房间签名并不接收 `options`。
 
 ### 4. `leaveRoom()` 与 `endRoom()` 是两类不同动作
 普通成员离开会议应调用 `leaveRoom()`；房主若要真正解散会议，需要调用 `endRoom()`，两者语义不能混用。
@@ -178,9 +177,9 @@ onUnmounted(() => {
 
 | 错误 / 场景 | 常见触发时机 | 建议处理方式 |
 |-------------|--------------|--------------|
-| `ERR_NEED_PASSWORD` | 加入密码房但未传密码 | 弹出密码输入框，输入后再次调用 `joinRoom({ roomId, options: { password } })` |
-| `ERR_WRONG_PASSWORD` | 输入的入会密码错误 | 提示密码错误，并允许用户修正 `options.password` 后重试 |
-| `ERR_ROOM_ID_NOT_EXIST` | 对不存在的房间调用 `joinRoom({ roomId, options: {} })` | 提示房间不存在；若属于对等发起场景可改走 `createAndJoinRoom()` |
+| `ERR_NEED_PASSWORD` | 加入密码房但未传密码 | 弹出密码输入框，输入后再次调用 `joinRoom({ roomId, password })` |
+| `ERR_WRONG_PASSWORD` | 输入的入会密码错误 | 提示密码错误，并允许用户修正顶层 `password` 后重试 |
+| `ERR_ROOM_ID_NOT_EXIST` | 对不存在的房间调用 `joinRoom({ roomId })` | 提示房间不存在；若属于对等发起场景可改走 `createAndJoinRoom()` |
 | `ERR_ROOM_USER_FULL` | 房间人数达到上限 | 提示房间已满，引导稍后重试或联系房主 |
 | `ERR_ROOM_ID_OCCUPIED` | 创建时 `roomId` 已被占用 | 检查 `roomId` 生成策略；若允许“存在则加入”，优先使用 `createAndJoinRoom()` |
 | `RoomEvent.onRoomEnded` | 房主结束当前会议 | 提示会议已结束，并退出会中页面 |
@@ -225,3 +224,10 @@ onUnmounted(() => {
 | 2. 静态规则级 | 进房路径、离开与结束动作分层明确 | 搜索 `joinRoom` / `createAndJoinRoom` / `leaveRoom` / `endRoom` | 进入、离开、结束职责清晰 |
 | 3. 运行时级 | 创建 / 加入会议后 `currentRoom` 可用 | 进房并查看调试状态 | 可读取有效 `roomId` |
 | 4. 业务行为级 | 密码房与错误提示、离开与结束后的页面状态正确收口 | 分别测试密码入会、离会与结束会议 | UI 与房间真实状态一致，失败时有明确反馈 |
+
+---
+
+> **official-roomkit 模式用户注意**：如果 `ui_mode = official-roomkit`，
+> 房间操作通过 `conference` 对象而非直接 composable。
+> 完整的 `conference` API 签名、枚举定义和代码示例见
+> **[`conference/web/official-roomkit-api.md`](./official-roomkit-api.md)**。

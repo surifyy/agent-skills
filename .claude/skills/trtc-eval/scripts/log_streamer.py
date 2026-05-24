@@ -18,6 +18,24 @@ from scripts.lib.platforms import get_adapter
 from scripts.lib.platforms.base import Device
 
 
+def _read_launch_env(case_dir: Path) -> dict[str, str]:
+    """Read <case_dir>/.eval-meta/launch.env — the single source of truth for
+    TRTC test credentials at runtime.  Returns a dict of KEY=value pairs.
+
+    Falls back to an empty dict if the file is missing (non-fatal; downstream
+    will use os.environ as last resort).
+    """
+    launch_env_path = case_dir / ".eval-meta" / "launch.env"
+    result: dict[str, str] = {}
+    if not launch_env_path.exists():
+        return result
+    for line in launch_env_path.read_text().splitlines():
+        if "=" in line and not line.startswith("#"):
+            key, _, value = line.partition("=")
+            result[key.strip()] = value.strip()
+    return result
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Log stream start/stop")
     ap.add_argument("--case-id", required=True)
@@ -46,8 +64,11 @@ def main() -> int:
 
         # For real device launches via devicectl, environment variables need
         # the DEVICECTL_CHILD_ prefix to be forwarded to the remote app.
+        # Read credentials from launch.env (single source of truth) rather
+        # than os.environ, which may contain stale values from previous runs.
         popen_env = dict(os.environ)
         if device.kind == "real":
+            launch_creds = _read_launch_env(case_dir)
             forward_keys = (
                 "EVAL_RUN_NONCE",
                 "EVAL_AUTO_RUN_FLOW",
@@ -56,7 +77,9 @@ def main() -> int:
                 "TRTC_TEST_USERSIG",
             )
             for key in forward_keys:
-                val = os.environ.get(key)
+                # launch.env is authoritative for TRTC_TEST_*; fall back to
+                # os.environ only for non-credential keys (EVAL_RUN_NONCE etc.)
+                val = launch_creds.get(key) or os.environ.get(key)
                 if val:
                     popen_env[f"DEVICECTL_CHILD_{key}"] = val
 

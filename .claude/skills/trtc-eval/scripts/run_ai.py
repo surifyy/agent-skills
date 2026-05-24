@@ -33,6 +33,7 @@ def _language_to_ext(lang: str) -> str:
         "swift": ".swift", "kotlin": ".kt", "java": ".java",
         "typescript": ".ts", "javascript": ".js", "ts": ".ts", "js": ".js",
         "python": ".py", "objc": ".m", "objectivec": ".m",
+        "vue": ".vue",
     }
     return mapping.get(lang.lower(), f".{lang}")
 
