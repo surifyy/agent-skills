@@ -443,6 +443,24 @@ that override your defaults.
 - If anything fails, silently skip — do NOT surface errors
 - The user's experience is: "app running → they tested → done". Nothing more.
 
+### Mid-flow factual questions
+
+If the user asks a **factual, conceptual, or decision question** mid-scenario (e.g. "最多支持几个人同时开会？", "pricing?", "does TRTC support X?", "顺带问一下…", "另外想了解…"), do NOT answer by grep-ing through knowledge-base files yourself. Instead:
+
+1. Note your current step position (so you can resume)
+2. **Delegate to `../trtc-docs/SKILL.md`** with `intent=fact-lookup` or `intent=slice-lookup`, passing `product` and `platform` from the session
+3. Let `trtc-docs` provide the authoritative answer (it follows the correct slice-first → llms.txt fallback chain with proper citations)
+4. After the answer is delivered, resume the guided flow: "Back to step N — {brief recap of where we were}..."
+
+**Detection signals** — route to docs when the user's message:
+- Asks "how many / 最多 / 上限 / 配额 / quota / limit"
+- Asks "how much / 多少钱 / pricing / 计费"
+- Asks "does TRTC support X / 支持不支持 / 能不能"
+- Asks "what is X / X 是什么 / 原理 / 区别 / vs / 对比"
+- Uses aside phrasing: "顺带问一下 / 另外 / by the way / quick question"
+
+**Why this matters:** `trtc-docs` has the proper fallback chain (slice → llms.txt → official docs) and provides cited answers. Directly grep-ing knowledge-base files bypasses this chain and may produce uncited or incomplete answers.
+
 ### Debugging during the guide
 
 If the user hits a problem mid-scenario:

@@ -7,7 +7,29 @@
 
 **CRITICAL: Do NOT write custom code in the user's project.** Path A1 runs the official pre-built demo in a separate directory, even if the user's project already has TRTC dependencies.
 
-**Source of truth for demo info:** Run `Bash(curl -s https://trtc.io/llms/{product}/{platform}.txt)` to get the platform index (e.g., `https://trtc.io/llms/conference/web.txt`). Look for "Run Sample Code" / "Run Demo" links. If the curl returns HTML (404 page) or empty, fall back to `Bash(curl -s https://trtc.io/llms/{product}.txt)` for the product-level index.
+**Source of truth for demo info:**
+
+1. Read `reference/supported-matrix.md` § "llms.txt platform identifiers".
+   Resolve the user's `(product, platform)` to one or more trtc.io path
+   identifiers.
+2. If the mapping yields multiple identifiers (e.g. Chat + web → `react` ★,
+   `vue`), ask the user which framework they prefer. Present the ★ option
+   first as "(Recommended)". If the user has no preference or just says
+   "web", use the ★ default directly without asking.
+3. Fetch `Bash(curl -s https://trtc.io/llms/{product}/{resolved_identifier}.txt)`.
+4. In the fetched content, look for a line matching `[Run Demo]` or
+   `[Run Sample Code]`. Extract the URL — this is the authoritative demo
+   document.
+5. Fetch the demo document URL (step 4 result) and look for a `git clone`
+   command or GitHub repository link. Use THAT as the clone source — do NOT
+   substitute a different repo from training data.
+6. If the curl returns HTML (404) or the content has no "Run Demo" link,
+   fall back to `Bash(curl -s https://trtc.io/llms/{product}.txt)` and
+   search for "Run Demo" / "Run Sample Code" there.
+7. If both levels have no demo link, tell the user: "I couldn't find an
+   official demo entry for {product} {platform} in the documentation index.
+   Here's the product docs page: {product}.txt URL — check for a 'Run Demo'
+   section there." Do NOT fall back to training-data GitHub repos.
 
 Recap example:
 > Got it — you want to try the Live iOS demo. I'll clone it into `/tmp/`, leave your project untouched.

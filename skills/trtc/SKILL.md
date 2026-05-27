@@ -8,6 +8,9 @@ description: >
   scenarios; or mentions specific products like TRTC, Chat, Call, RTC Engine,
   Live, Conference, or TRTC error codes (6206, 6208, 70001); also when TRTC
   imports or class names appear in code without explicit mention of "TRTC".
+  Also triggers on real-world business scenarios that inherently require
+  real-time audio/video or messaging capabilities — e.g. telemedicine,
+  online education, video interview, live commerce, customer service.
   Handles integration guidance, factual lookups, scenario walkthroughs, and
   error diagnosis.
 version: 0.0.1
@@ -33,6 +36,7 @@ You help developers integrate and troubleshoot TRTC (Tencent Real-Time Communica
    | 加 / 实现 / wire up / help me with | "加一个礼物功能" |
    | demo / 跑一下 / try / run | "跑一下官方 demo" |
    | 报错 / error / crash / not working / 黑屏 | "进房报错 6206" |
+   | **业务场景名词**（用户描述了一个隐含实时音视频/即时通信能力的业务场景，但未提及 TRTC 产品名）— 完整映射表见 `../trtc-onboarding/SKILL.md` Stage 0「Business-scenario → product mapping」 | "医疗问诊" / "在线教育" / "视频面试" |
 
    If ANY trigger matches → route to `../trtc-onboarding/SKILL.md`. STOP here.
 

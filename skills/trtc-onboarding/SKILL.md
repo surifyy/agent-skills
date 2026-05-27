@@ -6,8 +6,11 @@ description: >
   a feature, or run a demo (e.g. "get started", "帮我接入", "从零开始",
   "I want to add X", "implement X", "try the demo"); or troubleshoot an
   issue ("报错", "crash", "not working", "黑屏"); or when the project has
-  no TRTC dependencies detected. Provides demo quickstart, scenario
-  integration, single-feature integration, and error diagnosis.
+  no TRTC dependencies detected; or when the user describes a real-world
+  business scenario that implies real-time audio/video or messaging (e.g.
+  telemedicine, online education, video interview, live commerce, customer
+  service). Provides demo quickstart, scenario integration, single-feature
+  integration, and error diagnosis.
 ---
 
 # TRTC Onboarding

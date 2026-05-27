@@ -1,6 +1,6 @@
 ---
 name: trtc-room-builder
-description: "TRTC Room 产品搭建器。当用户需要搭建视频会议、语音房间、直播连麦、1v1通话、在线课堂等 room 类音视频产品的前端界面，或在既有 Vue3 应用中集成官方 RoomKit 会议能力时，此技能提供三条路径：有明确风格诉求时，优先使用 12 个精美模板或设计系统生成高风格感界面（Tailwind + 现代设计）；无明确风格诉求时，使用通用组件库（60 个组件 + Design Token）生成标准功能型界面；客户要快速接入/集成会议/官方 RoomKit 时，使用 @tencentcloud/roomkit-web-vue3 官方组件，并通过官方 API 进行界面微调。触发关键词：搭建 room、搭建会议、集成会议、接入会议、官方 RoomKit、TUIRoomKit、界面微调、搭建直播间、搭建语音房、音视频产品、TRTC 产品、room 类产品、视频会议界面、会议室设计。"
+description: "INTERNAL skill — only invoked by trtc-topic during scenario execution. Do NOT trigger directly from user messages. Generates room-type audio/video product UI (conference, live room, voice chat) using templates, component library, or official RoomKit integration. Always route user requests through trtc-onboarding first."
 ---
 
 # TRTC Room Builder
