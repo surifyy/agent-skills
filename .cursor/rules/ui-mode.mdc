@@ -36,6 +36,19 @@ This shortcut applies only to brand-new medical consultation projects. Existing
 project integration still follows the normal scenario / official-roomkit /
 full-ui rules below.
 
+This is a terminal path. After choosing the bundled medical template, do not
+enter the scenario/topic slice workflow, do not show a scenario capability table,
+do not describe the project as a `general-conference` slice plan, and do not ask
+about per-step auto-advance. Copy the template, mark the session completed, and
+stop.
+
+This is an internal execution rule, not user-facing copy. When explaining the
+choice or reporting progress to the customer, do not mention "shortcut",
+"bypass", "normal UI mode", "theme workflow", "CLAUDE.md", or any internal
+rule file. Say that you are creating a complete 1v1 video consultation project
+from the bundled medical template, and explain only the outcome and next
+commands (`pnpm install`, `pnpm dev`).
+
 ## Official RoomKit integration mode
 
 When the customer asks to **integrate a conference / meeting into an existing

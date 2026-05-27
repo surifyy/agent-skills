@@ -137,11 +137,15 @@ ui_customizations:
 #             + style) using room-builder's scenario template as visual spec
 # - headless: topic generates composable / store / types only; user writes
 #             their own UI. No .vue files, no reference components.
+# - medical-template:
+#             terminal path for brand-new 1v1 video consultation projects.
+#             onboarding copies the bundled medical consultation template and
+#             MUST NOT hand off to topic or generate slice-driven code.
 # - null:     non-conference scenario, or user never reached A2-Q0.5 — topic
 #             falls back to its default per-slice code-example strategy
 # Once written by A2-Q0.5, this field is permanent for the session. Users
 # cannot switch modes mid-integration — they must restart to pick differently.
-ui_mode: null                   # official-roomkit | full-ui | headless | null
+ui_mode: null                   # official-roomkit | full-ui | headless | medical-template | null
 
 # --- Auto-advance policy (scenario-driven flows only) ---
 # Set by A2-Q0.6 to control whether topic pauses for confirmation after each
@@ -551,6 +555,8 @@ These rules are checked **on every turn**, regardless of which stage or path you
 6. **No dumping raw slice content.** Always go through onboarding flow first. If the user's intent is clearly conceptual/learning ("how does X work"), hand off to `../trtc-docs/SKILL.md` rather than paraphrasing slices yourself. The `trtc-docs` skill will decide slice-first (for error codes / official patterns / API comparisons) vs llms.txt-direct (for conceptual explanations / pricing / migration).
 
 7. **Scenario handoff 是不可跳过的阻塞门。** 当 `intent = integrate-scenario` 且 A2-Q0 已选定具体 scenario 时：
+
+   **唯一终止态例外：** 如果 `${CLAUDE_PROJECT_DIR}/.trtc-session.yaml` 中 `scenario = 1v1-video-consultation` 且 `ui_mode = medical-template`，这是新建医疗问诊项目的模板复制路径。MUST NOT Read `../trtc-topic/SKILL.md`，MUST NOT 展示 scenario capabilities / slice 表，MUST NOT 生成任何 slice-driven 代码。直接执行 Path A2 的 Medical template copy flow；复制完成后设置 `current_step = 'template-copied'`、`status = completed`，然后停止。
 
    - MUST 通过 Read 读 `${CLAUDE_PLUGIN_ROOT}/skills/trtc-topic/SKILL.md`，按 topic 的流程逐步执行。topic 的真正约束由 PreToolUse / Stop hooks + on-disk state machine 物理强制（见 `../trtc-topic/scripts/STATE-MACHINE-GUIDE.md`），跟 SKILL.md 怎么进入上下文无关——所以读进来就够。
    - MUST NOT 在 onboarding 内直接生成任何业务代码文件（.vue / .ts / .swift / .kt / .dart 等）。

@@ -28,6 +28,22 @@ When a scenario picked by onboarding has `status: planned`, onboarding will have
 
 ## Pre-flight: integration support check
 
+Before reading any scenario file, check `${CLAUDE_PROJECT_DIR}/.trtc-session.yaml`
+for the terminal medical template path. If `scenario = '1v1-video-consultation'`
+and any of the following is true:
+
+- `ui_mode = 'medical-template'`
+- `current_step = 'template-copied'`
+- `status = 'completed'`
+
+stop immediately. Do NOT read the scenario file, do NOT present scenario
+capabilities, do NOT show a slice/module table, and do NOT start the slice state
+machine. Return control to onboarding with this message (translate to the
+user's language):
+
+> The complete 1v1 video consultation project is already handled by the bundled
+> medical template. Use `pnpm install` and `pnpm dev` in the generated project.
+
 Before reading any scenario file or generating slice code, verify the session matches the integration support matrix on all three dimensions:
 
 - `product == 'conference'`

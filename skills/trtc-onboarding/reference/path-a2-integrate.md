@@ -133,46 +133,62 @@ Options are **product-dependent**. Pull the concrete scenario list from `${CLAUD
 Skip for all other products and for the A2-Q1 fall-through branch.
 
 **Purpose**: decide how topic will integrate the conference UI — as the
-official RoomKit UI, as an AI-generated custom Vue SFC, or as headless
-composables where the user supplies their own UI. Ask BEFORE handing off to
-topic, so topic reads `ui_mode` from the session file at skill entry.
+official RoomKit UI, or as headless composables where the user supplies their
+own UI. Ask BEFORE handing off to topic, so topic reads `ui_mode` from the
+session file at skill entry.
+
+**User-facing wording rule**: Do not expose implementation labels such as
+`A2-Q0.5`, `ui_mode`, "CLAUDE.md", "shortcut", "bypass", "theme workflow",
+"normal UI mode selection", or "topic handoff" in chat. Present this as a
+product choice the customer is making, not as internal routing.
 
 ### Medical new-project condition
 
-When ALL of the following are true, use the **medical-specific 4-option menu** below instead of the default 3-option menu:
+When ALL of the following are true, use the **medical-specific 3-option menu** below instead of the default 3-option menu:
 
 - `scenario = 1v1-video-consultation`
 - `project_state.has_trtc_dep = false` (no existing TRTC project detected — indicates a brand-new project)
 
-This aligns with the "Medical new-project shortcut" defined in CLAUDE.md: for new medical consultation projects, the recommended path is copying the bundled template project directly.
+For new medical consultation projects, the recommended path is copying the
+bundled template project directly. This is an internal routing rule; do not
+mention the shortcut or CLAUDE.md to the user.
 
 **Question text (medical new-project)** (translate to user's language at runtime):
 
-> How do you want to integrate the consultation UI?
+> How would you like to start the 1v1 video consultation project?
 
 | # | Option | Fills | Next |
 |---|--------|-------|------|
-| 1 | Copy complete 1v1 medical consultation template (recommended: get a runnable project immediately — includes full consultation UI, mock data, and config; use `pnpm install && pnpm dev` to start) | `ui_mode = medical-template` | execute Medical template copy flow (below) |
-| 2 | Official UI (use the official meeting components for fast integration, tune buttons / widgets / layouts through official APIs) | `ui_mode = official-roomkit` | hand off to `../../trtc-topic/SKILL.md` (Read) with official-roomkit spec |
-| 3 | AI-generated full meeting UI (custom Vue SFC with medical scenario as visual reference) | `ui_mode = full-ui` | hand off to `../../trtc-topic/SKILL.md` (Read) with full-ui spec |
-| 4 | Business logic only (headless composables / stores / types; you write your own UI) | `ui_mode = headless` | hand off to `../../trtc-topic/SKILL.md` (Read) with headless spec |
+| 1 | Create a complete runnable consultation project (recommended: includes the full consultation UI, mock data, and config; start with `pnpm install` and `pnpm dev`) | `ui_mode = medical-template` | execute Medical template copy flow (below) |
+| 2 | Generate a custom consultation UI in this project (Vue SFC based on the medical scenario) | `ui_mode = full-ui` | hand off to `../../trtc-topic/SKILL.md` (Read) with full-ui spec |
+| 3 | Add business logic only (composables / stores / types; customer provides UI) | `ui_mode = headless` | hand off to `../../trtc-topic/SKILL.md` (Read) with headless spec |
 
-(4 options; "Type something" is auto-provided by AskUserQuestion's Other — do NOT add it as an explicit option per Global rule #2.)
+(3 options; "Type something" is auto-provided by AskUserQuestion's Other — do NOT add it as an explicit option per Global rule #2.)
 
 **Medical template copy flow (option 1 selected):**
 
 1. Ask the user for the target project directory (or default to a sibling directory like `../medical-consultation/`).
 2. Copy `${CLAUDE_PLUGIN_ROOT}/skills/trtc/room-builder/templates/scenarios/medical-consultation/` to the target directory, preserving structure exactly as packaged.
-3. Do NOT run `trtc_prepare_ui.py`, do NOT generate Vue SFCs, do NOT run `trtc_verify_ui.py` or any UI/medical verifiers.
-4. Tell the user to use `pnpm install` for dependencies and `pnpm dev` for local development. Do NOT recommend `npm install` / `npm run dev` (this template starts much slower with npm and can show a blank first screen for a while).
-5. Set `current_step = 'template-copied'` and `status = completed` in `${CLAUDE_PROJECT_DIR}/.trtc-session.yaml`. Write session.
-6. Do NOT hand off to topic — the template is a complete, self-contained project; no step-by-step slice execution needed.
+3. Do NOT read `../../trtc-topic/SKILL.md`, do NOT show scenario capabilities or a slice/module overview, and do NOT run A2-Q0.6. The template path is terminal and does not enter the slice state machine.
+4. Do NOT run `trtc_prepare_ui.py`, do NOT generate Vue SFCs, do NOT run `trtc_verify_ui.py` or any UI/medical verifiers.
+5. Tell the user to use `pnpm install` for dependencies and `pnpm dev` for local development. Do NOT recommend `npm install` / `npm run dev` (this template starts much slower with npm and can show a blank first screen for a while).
+6. Set `ui_mode = 'medical-template'`, `current_step = 'template-copied'`, and `status = completed` in `${CLAUDE_PROJECT_DIR}/.trtc-session.yaml`. Write session.
+7. Do NOT hand off to topic — the template is a complete, self-contained project; no step-by-step slice execution needed.
 
-**Medical template default / recommendation rule**: When `scenario = 1v1-video-consultation` AND `project_state.has_trtc_dep = false`, map short confirmations ("推荐", "默认", "1", "模板", "快速", "直接复制") to option 1 (template copy). Only proceed to options 2–4 when the user explicitly asks for a different integration approach.
+**Medical template user-facing recap**: When option 1 is selected, say something
+like: "好的，我会创建一个完整的 1v1 视频问诊项目，里面已经包含问诊 UI、模拟数据和基础配置。创建完成后用 `pnpm install` 和 `pnpm dev` 启动。" Do not say the user "hit" or "matched" an internal rule.
+
+**Medical template default / recommendation rule**: When `scenario = 1v1-video-consultation` AND `project_state.has_trtc_dep = false`, map short confirmations ("推荐", "默认", "1", "模板", "快速", "直接复制") to option 1 (template copy). Only proceed to options 2–3 when the user explicitly asks for a different integration approach.
+
+**Medical template resume rule**: If a later turn resumes a session with
+`ui_mode = medical-template`, `current_step = template-copied`, or
+`status = completed`, do not resume topic and do not re-open the slice sequence.
+Summarize that the complete 1v1 consultation project has already been created
+and repeat only the next commands (`pnpm install`, `pnpm dev`) if useful.
 
 ---
 
-### Default 3-option menu (non-medical or existing project)
+### Default 2-option menu (non-medical or existing project)
 
 When the medical condition above is NOT met (i.e. `scenario != 1v1-video-consultation` OR `project_state.has_trtc_dep = true`), use the standard menu:
 
@@ -183,9 +199,9 @@ When the medical condition above is NOT met (i.e. `scenario != 1v1-video-consult
 | # | Option | Fills | Next |
 |---|--------|-------|------|
 | 1 | Official UI (recommended: use the official meeting components for fast integration, with full meeting UI out of the box — video, toolbar, member list, chat, etc. Tune buttons, business widgets, click interceptors, share links, and layouts through official APIs) | `ui_mode = official-roomkit` | hand off to `../../trtc-topic/SKILL.md` (Read) with official-roomkit spec |
-| 2 | AI-generated full meeting UI (custom Vue SFC: template, AtomicXCore bindings, and styles, using the {scenario} UI template as visual reference; choose this when the customer explicitly wants a rebuilt/custom meeting screen) | `ui_mode = full-ui` | hand off to `../../trtc-topic/SKILL.md` (Read) with full-ui spec |
-| 3 | Business logic only (headless composables / stores / types; you write your own UI — good for projects that already have a design system) | `ui_mode = headless` | hand off to `../../trtc-topic/SKILL.md` (Read) with headless spec |
-| 4 | Type something | free-text | re-infer |
+| 2 | Business logic only (headless composables / stores / types; you write your own UI — good for projects that already have a design system) | `ui_mode = headless` | hand off to `../../trtc-topic/SKILL.md` (Read) with headless spec |
+
+(2 options; "Type something" is auto-provided by AskUserQuestion's Other — do NOT add it as an explicit option per Global rule #2.)
 
 Persist `ui_mode` to `${CLAUDE_PROJECT_DIR}/.trtc-session.yaml`. Piggyback on the Stage 1 confirmed
 write — do NOT trigger an extra Write just for this field.
@@ -193,14 +209,16 @@ write — do NOT trigger an extra Write just for this field.
 **Default / recommendation rule (non-medical)**: If the user says "集成会议", "接入会议",
 "快速接入", "官方 UI", "RoomKit", "TUIRoomKit", or asks for UI tweaks on top of
 the official meeting UI, recommend option 1 and map short confirmations
-("推荐", "默认", "1", "官方") to `ui_mode = official-roomkit`. Only recommend
-option 2 when the user explicitly wants AI to generate a custom/full meeting
-screen rather than using the official UI.
+("推荐", "默认", "1", "官方") to `ui_mode = official-roomkit`.
 
 **Telemedicine default**: maps to room-builder's `one-on-one` scene. Multi-party
 consultation is out of scope for this release (see pending_todos).
 
 When a scenario is chosen:
+
+0. **Terminal medical-template guard.** If `scenario = 1v1-video-consultation`
+   and `ui_mode = medical-template`, STOP here and execute the Medical template
+   copy flow above. Do not run the following topic handoff steps.
 
 1. **Handoff to `../../trtc-topic/SKILL.md` via Read.** Read `${CLAUDE_PLUGIN_ROOT}/skills/trtc-topic/SKILL.md` and execute its flow. (Plain Read is the current handoff convention — the §3.5 cross-skill `Skill()` tool handoff was walked back. The real constraints that prevent topic from being silently bypassed live in PreToolUse / Stop hooks and the on-disk state machine, not in how SKILL.md is loaded — so plain Read is sufficient.)
 

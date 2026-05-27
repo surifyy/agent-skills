@@ -398,7 +398,7 @@ scenarios:
       - conference/room-chat
       - conference/video-layout
     file: scenarios/conference/medical/1v1-video-consultation.md
-    description: 医疗 1v1 视频问诊：基于 general-conference 的医疗派生场景，包含候诊叫号、入诊沟通、病历面板和问诊收口
+    description: 医疗 1v1 视频问诊：医生与患者一对一完成候诊叫号、入诊沟通、病历面板和问诊收口；新建项目优先使用 bundled medical consultation template
     status: active
 
   - id: medical-multidoctor-consultation
