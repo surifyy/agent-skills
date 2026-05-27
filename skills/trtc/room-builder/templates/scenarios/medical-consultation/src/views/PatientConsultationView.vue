@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
+import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import {
   Mic,
   MicOff,
@@ -42,6 +43,7 @@ import MedicalAlert from '@/components/MedicalAlert.vue';
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useUIKit();
 const roomState = useRoomState();
 const participantState = useRoomParticipantState();
 const deviceState = useDeviceState();
@@ -80,7 +82,7 @@ const {
   preferredFocusUserId: primaryDoctorId,
   getDoctorById: services.user.getDoctorById.bind(services.user),
   getPatientById: services.user.getPatientById.bind(services.user),
-  selfDisplayName: '我',
+  selfDisplayName: t('Medical.Common.Me'),
 });
 const timer = ref(0);
 const consultationSessionStartedAt = ref(Date.now());
@@ -123,7 +125,7 @@ const {
 } = useConsultationChat({
   peerUserId: doctorUserId,
   sessionStartedAt: consultationSessionStartedAt,
-  emptyErrorText: '会话初始化失败',
+  emptyErrorText: t('Medical.Chat.SessionInitFailed'),
 });
 const transcriptionMessages = computed(() =>
   [...(realtimeMessageList.value ?? [])]
@@ -255,15 +257,15 @@ function isPatientSpeaker(userId?: string) {
 
 function getTranscriptionSpeakerName(userId?: string) {
   if (!userId) {
-    return '成员';
+    return t('Medical.Common.Member');
   }
   if (userId === doctor.value?.userId) {
-    return doctor.value?.userName || '医生';
+    return doctor.value?.userName || t('Medical.Common.Doctor');
   }
   if (isPatientSpeaker(userId)) {
-    return '我';
+    return t('Medical.Common.Me');
   }
-  return '成员';
+  return t('Medical.Common.Member');
 }
 
 function formatTranscriptionTime(timestamp?: number) {
@@ -294,14 +296,19 @@ function toggleChatPanel() {
 }
 
 function getDeviceLabel(deviceType: DeviceType) {
-  return deviceType === DeviceType.Camera ? '摄像头' : '麦克风';
+  return deviceType === DeviceType.Camera
+    ? t('Medical.Device.Camera')
+    : t('Medical.Device.Microphone');
 }
 
 const deviceInviteTitle = computed(() => {
   if (!pendingDeviceInvitation.value) {
     return '';
   }
-  return `${pendingDeviceInvitation.value.senderName}邀请你开启${getDeviceLabel(pendingDeviceInvitation.value.deviceType)}`;
+  return t('Medical.Consultation.DeviceInviteTitle', {
+    sender: pendingDeviceInvitation.value.senderName,
+    device: getDeviceLabel(pendingDeviceInvitation.value.deviceType),
+  });
 });
 
 const onDeviceInvitationReceived = (options: {
@@ -317,7 +324,8 @@ const onDeviceInvitationReceived = (options: {
   }
   pendingDeviceInvitation.value = {
     senderUserId: invitation.senderUserId,
-    senderName: invitation.senderUserName || doctor.value?.userName || '医生',
+    senderName:
+      invitation.senderUserName || doctor.value?.userName || t('Medical.Common.Doctor'),
     deviceType: invitation.deviceType,
   };
   deviceInviteHint.value = '';
@@ -343,7 +351,7 @@ const onDeviceInvitationCancelled = (options: {
   if (!isCurrentPendingInvitation(options)) {
     return;
   }
-  deviceInviteHint.value = '该邀请已被取消';
+  deviceInviteHint.value = t('Medical.Consultation.InviteCancelled');
   deviceInviteVisible.value = false;
   pendingDeviceInvitation.value = null;
 };
@@ -354,7 +362,7 @@ const onDeviceInvitationTimeout = (options: {
   if (!isCurrentPendingInvitation(options)) {
     return;
   }
-  deviceInviteHint.value = '该邀请已超时';
+  deviceInviteHint.value = t('Medical.Consultation.InviteTimeout');
   deviceInviteVisible.value = false;
   pendingDeviceInvitation.value = null;
 };
@@ -379,19 +387,25 @@ async function handleDeviceInvitationDecision(accept: boolean) {
         await deviceState.openLocalMicrophone();
       }
       devicePermissionHint.value = '';
-      deviceInviteHint.value = `已同意开启${getDeviceLabel(invitation.deviceType)}`;
+      deviceInviteHint.value = t('Medical.Consultation.DeviceInviteAccepted', {
+        device: getDeviceLabel(invitation.deviceType),
+      });
     } else {
       await participantState.declineOpenDeviceInvitation({
         userId: invitation.senderUserId,
         device: invitation.deviceType,
       });
-      deviceInviteHint.value = `已拒绝开启${getDeviceLabel(invitation.deviceType)}`;
+      deviceInviteHint.value = t('Medical.Consultation.DeviceInviteDeclined', {
+        device: getDeviceLabel(invitation.deviceType),
+      });
     }
     deviceInviteVisible.value = false;
     pendingDeviceInvitation.value = null;
   } catch (error) {
     deviceInviteHint.value =
-      error instanceof Error ? error.message : '处理邀请失败';
+      error instanceof Error
+        ? error.message
+        : t('Medical.Consultation.DeviceInviteProcessFailed');
   } finally {
     deviceInviteLoading.value = false;
     deviceInviteDecision.value = '';
@@ -411,7 +425,10 @@ async function toggleMic() {
       devicePermissionHint.value = '';
     }
   } catch (error) {
-    devicePermissionHint.value = getDeviceErrorHint('麦克风', error);
+    devicePermissionHint.value = getDeviceErrorHint(
+      t('Medical.Device.Microphone'),
+      error
+    );
   } finally {
     deviceAction.value = '';
   }
@@ -430,7 +447,10 @@ async function toggleCamera() {
       devicePermissionHint.value = '';
     }
   } catch (error) {
-    devicePermissionHint.value = getDeviceErrorHint('摄像头', error);
+    devicePermissionHint.value = getDeviceErrorHint(
+      t('Medical.Device.Camera'),
+      error
+    );
   } finally {
     deviceAction.value = '';
   }
@@ -583,14 +603,18 @@ onBeforeRouteLeave(to => {
           </div>
 
           <div
-            class="bg-black/40 backdrop-blur-md rounded-full px-4 py-2 flex items-center gap-2 shrink-0"
+            class="flex items-center gap-2 shrink-0"
           >
-            <span
-              class="inline-block h-2.5 w-2.5 rounded-full bg-[#00D08A] animate-pulse"
-            ></span>
-            <span class="text-white text-base font-mono leading-none">{{
-              formattedTimer
-            }}</span>
+            <div
+              class="bg-black/40 backdrop-blur-md rounded-full px-4 py-2 flex items-center gap-2"
+            >
+              <span
+                class="inline-block h-2.5 w-2.5 rounded-full bg-[#00D08A] animate-pulse"
+              ></span>
+              <span class="text-white text-base font-mono leading-none">{{
+                formattedTimer
+              }}</span>
+            </div>
           </div>
         </div>
 
@@ -602,7 +626,9 @@ onBeforeRouteLeave(to => {
             <i class="inline-block w-1.5 h-4 rounded-full bg-[#00D08A]"></i>
             <i class="inline-block w-1.5 h-5 rounded-full bg-[#00D08A]"></i>
           </span>
-          <span class="text-white text-xs leading-none">网络良好</span>
+          <span class="text-white text-xs leading-none">
+            {{ t('Medical.Consultation.NetworkGood') }}
+          </span>
         </div>
 
         <div
@@ -681,14 +707,14 @@ onBeforeRouteLeave(to => {
           class="px-4 py-2 rounded-full bg-[#111827]/70 text-white text-sm flex items-center gap-2"
         >
           <component :is="speakerEnabled ? Volume2 : VolumeX" :size="16" />
-          扬声器
+          {{ t('Medical.Consultation.Speaker') }}
         </button>
         <button
           @click="toggleChatPanel"
           class="px-4 py-2 rounded-full bg-[#111827]/70 text-white text-sm flex items-center gap-2"
         >
           <MessageCircle :size="16" />
-          消息
+          {{ t('Medical.Consultation.Messages') }}
         </button>
       </div>
 
@@ -710,7 +736,7 @@ onBeforeRouteLeave(to => {
       <div
         class="absolute bottom-4 left-1/2 -translate-x-1/2 w-[92%] rounded-full bg-[#0F172A]/55 text-center py-2 px-4 text-white/85 text-xs z-20"
       >
-        请根据医生指导进行描述，诊疗结束后可查看电子处方
+        {{ t('Medical.Consultation.PatientBottomHint') }}
       </div>
 
       <div
@@ -732,7 +758,9 @@ onBeforeRouteLeave(to => {
           >
             <div class="flex items-center gap-2">
               <FileText class="w-5 h-5 text-[#0D9488]" />
-              <h3 class="font-semibold text-gray-900">实时转写</h3>
+              <h3 class="font-semibold text-gray-900">
+                {{ t('Medical.Consultation.Transcription') }}
+              </h3>
             </div>
             <button
               @click="closeTranscriptionPanel"
@@ -804,7 +832,7 @@ onBeforeRouteLeave(to => {
               v-if="transcriptionMessages.length === 0"
               class="text-center text-sm text-gray-400 py-10"
             >
-              暂无转写内容，医生开启实时转写后将显示在这里
+              {{ t('Medical.Consultation.NoTranscription') }}
             </div>
           </div>
 
@@ -813,7 +841,7 @@ onBeforeRouteLeave(to => {
               class="text-xs text-blue-800 text-center flex items-center justify-center gap-1"
             >
               <Clock class="w-3 h-3" />
-              AI 自动转写中，仅供参考
+              {{ t('Medical.Consultation.AITranscribingTip') }}
             </p>
           </div>
         </div>
@@ -830,7 +858,9 @@ onBeforeRouteLeave(to => {
           <div
             class="h-14 px-4 border-b border-gray-100 flex items-center justify-between"
           >
-            <h3 class="text-base font-semibold text-gray-900">文字聊天</h3>
+            <h3 class="text-base font-semibold text-gray-900">
+              {{ t('Medical.Consultation.TextChat') }}
+            </h3>
             <button
               @click="chatPanelVisible = false"
               class="w-8 h-8 rounded-full hover:bg-gray-100 text-gray-500 flex items-center justify-center"
@@ -892,8 +922,8 @@ onBeforeRouteLeave(to => {
             >
               {{
                 activeConversation?.conversationID
-                  ? '暂无聊天消息'
-                  : '正在初始化会话...'
+                  ? t('Medical.Chat.Empty')
+                  : t('Medical.Chat.Initializing')
               }}
             </div>
           </div>
@@ -904,7 +934,7 @@ onBeforeRouteLeave(to => {
                 v-model="chatInput"
                 @keyup.enter="handleSendMessage"
                 class="flex-1 h-10 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#0D9488]"
-                placeholder="输入消息..."
+                :placeholder="t('Medical.Chat.InputPlaceholder')"
               />
               <button
                 @click="handleSendMessage"
@@ -928,7 +958,7 @@ onBeforeRouteLeave(to => {
           class="w-full max-w-[360px] rounded-3xl bg-white shadow-[0_20px_50px_rgba(15,23,42,0.25)] p-5"
         >
           <h3 class="text-[17px] font-semibold text-[#0F172A] leading-7">
-            设备开启请求
+            {{ t('Medical.Consultation.DeviceRequest') }}
           </h3>
           <p class="mt-2 text-sm text-[#475569] leading-6">
             {{ deviceInviteTitle }}
@@ -940,7 +970,11 @@ onBeforeRouteLeave(to => {
               class="h-10 rounded-xl border border-[#E2E8F0] text-[#475569] font-medium disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
             >
               <LoadingSpinner v-if="deviceInviteDecision === 'decline'" />
-              {{ deviceInviteDecision === 'decline' ? '处理中...' : '拒绝' }}
+              {{
+                deviceInviteDecision === 'decline'
+                  ? t('Medical.Common.Processing')
+                  : t('Medical.Common.Decline')
+              }}
             </button>
             <button
               @click="handleDeviceInvitationDecision(true)"
@@ -948,7 +982,11 @@ onBeforeRouteLeave(to => {
               class="h-10 rounded-xl bg-[#0D9488] text-white font-medium disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
             >
               <LoadingSpinner v-if="deviceInviteDecision === 'accept'" />
-              {{ deviceInviteDecision === 'accept' ? '处理中...' : '同意' }}
+              {{
+                deviceInviteDecision === 'accept'
+                  ? t('Medical.Common.Processing')
+                  : t('Medical.Common.Accept')
+              }}
             </button>
           </div>
         </div>

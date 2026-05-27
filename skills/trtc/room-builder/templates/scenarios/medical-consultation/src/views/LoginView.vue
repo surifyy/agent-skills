@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import { ChevronDown, Stethoscope, User, Lock, Shield } from '@/shared/icons';
 import { useLoginState, useRoomEngine } from 'tuikit-atomicx-vue3/room';
 import { MEDICAL_MODE } from '@/config/runtime-config';
@@ -13,9 +14,11 @@ import {
 import { getDefaultRoute } from '@/utils/navigation';
 import { saveSession } from '@/utils/session';
 import MedicalButton from '@/components/MedicalButton.vue';
+import LanguageSwitch from '@/components/LanguageSwitch.vue';
 
 const router = useRouter();
 const loginState = useLoginState();
+const { t } = useUIKit();
 
 const activeRole = ref<UserRole>('doctor');
 const doctorUsers = computed(() => services.user.listDoctors());
@@ -43,7 +46,7 @@ const selectedAccount = computed(() =>
 const selectedAccountLabel = computed(() => {
   const currentUser = selectedAccount.value;
   if (!currentUser) {
-    return '请选择账号';
+    return t('Medical.Login.SelectAccount');
   }
   if (currentUser.role === 'doctor') {
     return `${currentUser.userName} / ${currentUser.department} / ${currentUser.hospital}`;
@@ -91,7 +94,7 @@ async function handleLogin() {
     : null;
 
   if (!launchContext || !currentUser) {
-    errorMessage.value = '未找到预置演示账号';
+    errorMessage.value = t('Medical.Login.PresetAccountNotFound');
     loading.value = false;
     return;
   }
@@ -113,7 +116,7 @@ async function handleLogin() {
     router.replace(getDefaultRoute(currentUser.role, session.appointmentId));
   } catch (error) {
     errorMessage.value =
-      error instanceof Error ? error.message : '登录失败，请检查 SDK 配置';
+      error instanceof Error ? error.message : t('Medical.Login.LoginFailed');
   } finally {
     loading.value = false;
   }
@@ -127,7 +130,7 @@ async function tryIntegrationLogin() {
   const launchContext = services.auth.getLaunchContext();
   if (!launchContext) {
     launchHint.value =
-      '当前为 integration 模式。请由业务系统通过 URL 注入 role、userId、appointmentId、token 等参数后进入。';
+      t('Medical.Login.IntegrationHint');
     return;
   }
 
@@ -150,7 +153,7 @@ async function tryIntegrationLogin() {
     router.replace(getDefaultRoute(session.role, session.appointmentId));
   } catch (error) {
     errorMessage.value =
-      error instanceof Error ? error.message : '接入模式初始化失败';
+      error instanceof Error ? error.message : t('Medical.Login.IntegrationInitFailed');
   } finally {
     loading.value = false;
   }
@@ -175,14 +178,19 @@ onMounted(() => {
         class="bg-gradient-to-br from-[#0D9488] to-[#0F766E] p-6 text-white md:flex md:flex-col md:justify-between md:p-12"
       >
         <div>
-          <div class="mb-5 flex items-center gap-3 md:mb-8">
-            <div class="rounded-2xl bg-white/10 p-2.5 backdrop-blur-sm md:p-3">
-              <Stethoscope class="h-7 w-7 md:h-8 md:w-8" />
+          <div class="mb-5 flex items-start justify-between gap-3 md:mb-8">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="rounded-2xl bg-white/10 p-2.5 backdrop-blur-sm md:p-3">
+                <Stethoscope class="h-7 w-7 md:h-8 md:w-8" />
+              </div>
+              <div class="min-w-0">
+                <h1 class="text-xl font-semibold md:text-2xl">
+                  {{ t('Medical.Common.PlatformName') }}
+                </h1>
+                <p class="text-white/80 text-sm">{{ t('Medical.Common.TemplateName') }}</p>
+              </div>
             </div>
-            <div>
-              <h1 class="text-xl font-semibold md:text-2xl">示例医疗平台</h1>
-              <p class="text-white/80 text-sm">Medical Consultation Template</p>
-            </div>
+            <LanguageSwitch />
           </div>
 
           <div class="mt-6 space-y-4 md:mt-12 md:space-y-6">
@@ -191,9 +199,9 @@ onMounted(() => {
                 <Shield :size="20" />
               </div>
               <div>
-                <h3 class="font-medium mb-1">音视频安全底座</h3>
+                <h3 class="font-medium mb-1">{{ t('Medical.Login.VideoSecurityTitle') }}</h3>
                 <p class="text-white/70 text-sm">
-                  提供稳定音视频链路，可按客户要求接入业务安全体系
+                  {{ t('Medical.Login.VideoSecurityDescription') }}
                 </p>
               </div>
             </div>
@@ -203,9 +211,9 @@ onMounted(() => {
                 <Stethoscope :size="20" />
               </div>
               <div>
-                <h3 class="font-medium mb-1">完整诊疗闭环</h3>
+                <h3 class="font-medium mb-1">{{ t('Medical.Login.WorkflowTitle') }}</h3>
                 <p class="text-white/70 text-sm">
-                  从预约到处方，全流程数字化管理
+                  {{ t('Medical.Login.WorkflowDescription') }}
                 </p>
               </div>
             </div>
@@ -213,20 +221,20 @@ onMounted(() => {
         </div>
 
         <div class="mt-5 text-xs text-white/60 md:mt-0">
-          <p>© 示例医疗平台 | 医疗场景源码模板</p>
+          <p>© {{ t('Medical.Common.PlatformName') }} | {{ t('Medical.Common.SourceTemplate') }}</p>
         </div>
       </div>
 
       <div class="flex flex-col justify-center p-6 md:p-12">
         <div class="mb-6 md:mb-8">
           <h2 class="mb-2 text-xl font-semibold text-gray-900 md:text-2xl">
-            {{ MEDICAL_MODE === 'mock' ? '场景化演示入口' : '接入入口示例' }}
+            {{ MEDICAL_MODE === 'mock' ? t('Medical.Login.MockEntryTitle') : t('Medical.Login.IntegrationEntryTitle') }}
           </h2>
           <p class="text-sm leading-6 text-gray-500 md:text-base">
             {{
               MEDICAL_MODE === 'mock'
-                ? '请选择预置身份快速体验医患链路'
-                : '集成模式下建议由客户业务系统携带参数直接跳转进入'
+                ? t('Medical.Login.MockEntryDescription')
+                : t('Medical.Login.IntegrationEntryDescription')
             }}
           </p>
         </div>
@@ -245,7 +253,7 @@ onMounted(() => {
               ]"
             >
               <Stethoscope :size="16" />
-              医生登录
+              {{ t('Medical.Login.DoctorLogin') }}
             </button>
             <button
               @click="switchRole('patient')"
@@ -257,14 +265,14 @@ onMounted(() => {
               ]"
             >
               <User :size="16" />
-              患者登录
+              {{ t('Medical.Login.PatientLogin') }}
             </button>
           </div>
 
           <div class="space-y-4 md:space-y-5">
             <div class="space-y-2">
               <label class="block text-sm font-medium text-gray-700">
-                {{ activeRole === 'doctor' ? '医生账号' : '患者账号' }}
+                {{ activeRole === 'doctor' ? t('Medical.Login.DoctorAccount') : t('Medical.Login.PatientAccount') }}
               </label>
               <div class="relative" @click.stop>
                 <User
@@ -321,7 +329,7 @@ onMounted(() => {
 
             <div class="space-y-2">
               <label class="block text-sm font-medium text-gray-700">
-                {{ activeRole === 'doctor' ? '密码' : '预约验证码' }}
+                {{ activeRole === 'doctor' ? t('Medical.Login.Password') : t('Medical.Login.AppointmentCode') }}
               </label>
               <div class="relative">
                 <Lock
@@ -345,24 +353,26 @@ onMounted(() => {
                   checked
                   class="w-4 h-4 rounded border-gray-300 text-[#0D9488] focus:ring-[#0D9488]"
                 />
-                <span class="text-gray-600">记住登录状态</span>
+                <span class="text-gray-600">{{ t('Medical.Login.RememberLogin') }}</span>
               </label>
               <button type="button" class="text-[#0D9488] hover:text-[#0F766E]">
-                忘记密码？
+                {{ t('Medical.Login.ForgotPassword') }}
               </button>
             </div>
 
             <div v-else class="bg-[#F1F5F9] rounded-xl p-4">
               <p class="text-sm text-gray-600 text-center">
-                <span class="text-[#0D9488] font-medium">温馨提示：</span>
-                请使用预约时填写的手机号登录
+                <span class="text-[#0D9488] font-medium">{{ t('Medical.Login.Tips') }}</span>
+                {{ t('Medical.Login.PatientPhoneTip') }}
               </p>
             </div>
 
             <div class="rounded-xl bg-[#F1F5F9] p-3 md:p-4">
               <p class="text-xs text-gray-600 leading-6">
-                运行前请先在 <code>src/config/basic-info-config.ts</code> 中填写
-                <code>SDKAPPID</code>。正式交付时请改为客户服务端签发
+                {{ t('Medical.Login.ConfigTipPrefix') }}
+                <code>src/config/basic-info-config.ts</code>
+                {{ t('Medical.Login.ConfigTipMiddle') }}
+                <code>SDKAPPID</code>{{ t('Medical.Login.ConfigTipSuffix') }}
                 <code>UserSig</code>。
               </p>
             </div>
@@ -376,15 +386,15 @@ onMounted(() => {
             >
               {{
                 loading
-                  ? '登录中...'
+                  ? t('Medical.Login.LoginLoading')
                   : activeRole === 'doctor'
-                    ? '登录工作台'
-                    : '进入候诊室'
+                    ? t('Medical.Login.OpenDashboard')
+                    : t('Medical.Login.EnterWaitingRoom')
               }}
             </MedicalButton>
 
             <p class="text-center text-xs text-gray-500 mt-4">
-              当前页面用于演示入口与接入方式，客户可替换为自有登录或单点入口
+              {{ t('Medical.Login.EntryDescription') }}
             </p>
 
             <p v-if="errorMessage" class="text-sm text-red-500">
@@ -395,23 +405,22 @@ onMounted(() => {
 
         <div v-else class="space-y-4">
           <div class="rounded-2xl border border-[#0D9488]/20 bg-[#F0FDFA] p-4">
-            <p class="text-sm font-medium text-[#0F766E]">Integration 模式</p>
+            <p class="text-sm font-medium text-[#0F766E]">{{ t('Medical.Login.IntegrationMode') }}</p>
             <p class="mt-2 text-sm leading-6 text-gray-600">
-              页面会尝试从 URL 中读取 <code>role</code>、<code>userId</code>、
-              <code>appointmentId</code>、<code>token</code> 等参数自动登录。
+              {{ t('Medical.Login.IntegrationModeDescription') }}
             </p>
           </div>
 
           <div
             class="rounded-2xl bg-[#F8FAFC] p-4 text-xs leading-7 text-gray-600"
           >
-            <p>医生端示例：</p>
+            <p>{{ t('Medical.Login.DoctorExample') }}</p>
             <p>
               <code>
                 ?role=doctor&amp;userId=doctor_li&amp;appointmentId=APT001
               </code>
             </p>
-            <p class="mt-2">患者端示例：</p>
+            <p class="mt-2">{{ t('Medical.Login.PatientExample') }}</p>
             <p>
               <code>
                 ?role=patient&amp;userId=patient_zhang&amp;appointmentId=APT001

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import { MessageSquare, PenLine, Users } from '@/shared/icons';
 import {
   DeviceStatus,
@@ -32,6 +33,7 @@ const props = defineProps<{
   patient: MedicalUser;
   permissions?: ConsultationPermissions;
 }>();
+const { t } = useUIKit();
 
 type PanelTab = 'chat' | 'transcribe' | 'members';
 type DeviceInviteKey = 'camera' | 'microphone';
@@ -196,7 +198,7 @@ const memberCards = computed<ConsultationMemberCard[]>(() => [
         userId: item.userId,
         userName: doctorInfo?.userName || item.userName || item.userId,
         isPatient: false,
-        roleLabel: '待加入',
+        roleLabel: t('Medical.Manage.PendingJoin'),
         roleClass: 'bg-[#F3F4F6] text-[#4B5563]',
         avatarClass: 'from-[#CBD5E1] to-[#94A3B8]',
         cameraOn: false,
@@ -258,9 +260,9 @@ watch(patientMicrophoneOn, microphoneOn => {
 
 function getMemberRoleLabel(isPatient: boolean, isPrimaryDoctor: boolean) {
   if (isPatient) {
-    return '患者';
+    return t('Medical.Common.Patient');
   }
-  return isPrimaryDoctor ? '主诊医生' : '会诊医生';
+  return isPrimaryDoctor ? t('Medical.Manage.PrimaryDoctor') : t('Medical.Common.ConsultingDoctor');
 }
 
 function getMemberRoleClass(isPatient: boolean, isPrimaryDoctor: boolean) {
@@ -300,7 +302,7 @@ async function clearConsultationSessionData() {
 
 function getSpeakerName(userId: string) {
   if (!userId) {
-    return '未知成员';
+    return t('Medical.Manage.UnknownMember');
   }
   const participant = participantState.participantList.value.find(
     item => item.userId === userId
@@ -331,7 +333,7 @@ async function toggleRealtimeTranscriber() {
     if (transcriberRunning.value) {
       await stopRealtimeTranscriber();
       transcriberRunning.value = false;
-      transcriberHint.value = '实时转写已关闭';
+      transcriberHint.value = t('Medical.Manage.TranscriberClosed');
       return;
     }
     await startRealtimeTranscriber({
@@ -339,10 +341,10 @@ async function toggleRealtimeTranscriber() {
       translationLanguages: ['en'],
     });
     transcriberRunning.value = true;
-    transcriberHint.value = '实时转写已开启';
+    transcriberHint.value = t('Medical.Manage.TranscriberStarted');
   } catch (error) {
     transcriberHint.value =
-      error instanceof Error ? error.message : '转写操作失败';
+      error instanceof Error ? error.message : t('Medical.Manage.TranscriberFailed');
   } finally {
     transcriberBusy.value = false;
   }
@@ -353,15 +355,15 @@ async function copyDraft() {
     return;
   }
   if (!transcriptText.value) {
-    transcriberHint.value = '暂无可复制内容';
+    transcriberHint.value = t('Medical.Manage.NoCopyContent');
     return;
   }
   isCopyingDraft.value = true;
   try {
     await navigator.clipboard.writeText(transcriptText.value);
-    transcriberHint.value = '内容已复制到剪贴板';
+    transcriberHint.value = t('Medical.Manage.Copied');
   } catch {
-    transcriberHint.value = '复制失败，请检查浏览器权限';
+    transcriberHint.value = t('Medical.Manage.CopyFailed');
   } finally {
     isCopyingDraft.value = false;
   }
@@ -372,7 +374,7 @@ function exportDraft() {
     return;
   }
   if (!transcriptText.value) {
-    transcriberHint.value = '暂无可导出内容';
+    transcriberHint.value = t('Medical.Manage.NoExportContent');
     return;
   }
   isExportingDraft.value = true;
@@ -386,7 +388,7 @@ function exportDraft() {
     link.download = `consultation-draft-${Date.now()}.txt`;
     link.click();
     URL.revokeObjectURL(fileUrl);
-    transcriberHint.value = '内容已导出';
+    transcriberHint.value = t('Medical.Manage.Exported');
   } finally {
     isExportingDraft.value = false;
   }
@@ -394,12 +396,12 @@ function exportDraft() {
 
 async function inviteDoctor(userId: string) {
   if (!permissions.value.canInviteDoctor) {
-    inviteFeedback.value = '当前角色无权邀请会诊医生';
+    inviteFeedback.value = t('Medical.Manage.NoInvitePermission');
     return;
   }
   const roomId = roomState.currentRoom.value?.roomId;
   if (!roomId) {
-    inviteFeedback.value = '当前不在房间中，暂时无法邀请会诊医生';
+    inviteFeedback.value = t('Medical.Manage.NotInRoomInvite');
     return;
   }
   invitingDoctorId.value = userId;
@@ -409,13 +411,15 @@ async function inviteDoctor(userId: string) {
       roomId: String(roomId),
       userIdList: [userId],
       timeout: 45,
-      extensionInfo: `${props.doctor.userName}邀请您加入会诊`,
+      extensionInfo: t('Medical.Manage.InviteExtension', {
+        doctor: props.doctor.userName,
+      }),
     });
-    inviteFeedback.value = '邀请已发送，等待对方接听';
+    inviteFeedback.value = t('Medical.Manage.InviteSent');
     await participantState.getParticipantList({ cursor: '' });
   } catch (error) {
     inviteFeedback.value =
-      error instanceof Error ? error.message : '邀请失败，请稍后重试';
+      error instanceof Error ? error.message : t('Medical.Manage.InviteFailed');
   } finally {
     invitingDoctorId.value = null;
   }
@@ -423,12 +427,12 @@ async function inviteDoctor(userId: string) {
 
 async function cancelInvite(userId: string) {
   if (!permissions.value.canCancelInvite) {
-    inviteFeedback.value = '当前角色无权取消会诊邀请';
+    inviteFeedback.value = t('Medical.Manage.NoCancelInvitePermission');
     return;
   }
   const roomId = roomState.currentRoom.value?.roomId;
   if (!roomId) {
-    inviteFeedback.value = '当前不在房间中，暂时无法取消邀请';
+    inviteFeedback.value = t('Medical.Manage.NotInRoomCancelInvite');
     return;
   }
   cancellingDoctorId.value = userId;
@@ -438,11 +442,11 @@ async function cancelInvite(userId: string) {
       roomId: String(roomId),
       userIdList: [userId],
     });
-    inviteFeedback.value = '已取消邀请';
+    inviteFeedback.value = t('Medical.Manage.InviteCancelled');
     await participantState.getParticipantList({ cursor: '' });
   } catch (error) {
     inviteFeedback.value =
-      error instanceof Error ? error.message : '取消邀请失败，请稍后重试';
+      error instanceof Error ? error.message : t('Medical.Manage.CancelInviteFailed');
   } finally {
     cancellingDoctorId.value = null;
   }
@@ -459,7 +463,7 @@ function getDeviceKey(deviceType: DeviceType): DeviceInviteKey | null {
 }
 
 function getDeviceLabel(deviceType: DeviceType) {
-  return deviceType === DeviceType.Camera ? '摄像头' : '麦克风';
+  return deviceType === DeviceType.Camera ? t('Medical.Device.Camera') : t('Medical.Device.Microphone');
 }
 
 function setDeviceInviteLoading(key: DeviceInviteKey, loading: boolean) {
@@ -507,12 +511,16 @@ async function invitePatientOpenDevice(deviceType: DeviceType) {
       timeout: 30,
     });
     setDeviceInviteState(key, true, 'pending');
-    inviteFeedback.value = `已邀请患者开启${getDeviceLabel(deviceType)}`;
+    inviteFeedback.value = t('Medical.Manage.InvitedPatientOpenDevice', {
+      device: getDeviceLabel(deviceType),
+    });
   } catch (error) {
     inviteFeedback.value =
       error instanceof Error
         ? error.message
-        : `邀请开启${getDeviceLabel(deviceType)}失败`;
+        : t('Medical.Manage.InviteOpenDeviceFailed', {
+            device: getDeviceLabel(deviceType),
+          });
   } finally {
     setDeviceInviteLoading(key, false);
   }
@@ -534,12 +542,16 @@ async function cancelPatientOpenDeviceInvitation(deviceType: DeviceType) {
       device: deviceType,
     });
     setDeviceInviteState(key, false, 'cancelled');
-    inviteFeedback.value = `已取消患者${getDeviceLabel(deviceType)}邀请`;
+    inviteFeedback.value = t('Medical.Manage.CancelledPatientDeviceInvite', {
+      device: getDeviceLabel(deviceType),
+    });
   } catch (error) {
     inviteFeedback.value =
       error instanceof Error
         ? error.message
-        : `取消${getDeviceLabel(deviceType)}邀请失败`;
+        : t('Medical.Manage.CancelDeviceInviteFailed', {
+            device: getDeviceLabel(deviceType),
+          });
   } finally {
     setDeviceInviteLoading(key, false);
   }
@@ -561,12 +573,16 @@ async function closePatientDevice(deviceType: DeviceType) {
       deviceType,
     });
     setDeviceInviteState(key, false, 'idle');
-    inviteFeedback.value = `已关闭患者${getDeviceLabel(deviceType)}`;
+    inviteFeedback.value = t('Medical.Manage.ClosedPatientDevice', {
+      device: getDeviceLabel(deviceType),
+    });
   } catch (error) {
     inviteFeedback.value =
       error instanceof Error
         ? error.message
-        : `关闭${getDeviceLabel(deviceType)}失败`;
+        : t('Medical.Manage.CloseDeviceFailed', {
+            device: getDeviceLabel(deviceType),
+          });
   } finally {
     setDeviceInviteLoading(key, false);
   }
@@ -574,7 +590,7 @@ async function closePatientDevice(deviceType: DeviceType) {
 
 function requestKickMember(member: { userId: string; userName: string }) {
   if (!permissions.value.canKickMember) {
-    inviteFeedback.value = '当前角色无权移出成员';
+    inviteFeedback.value = t('Medical.Manage.NoKickPermission');
     return;
   }
   kickConfirmTarget.value = member;
@@ -588,7 +604,7 @@ function cancelKickConfirm() {
 
 async function confirmKickMember() {
   if (!permissions.value.canKickMember) {
-    inviteFeedback.value = '当前角色无权移出成员';
+    inviteFeedback.value = t('Medical.Manage.NoKickPermission');
     kickConfirmTarget.value = null;
     return;
   }
@@ -600,11 +616,11 @@ async function confirmKickMember() {
   inviteFeedback.value = '';
   try {
     await participantState.kickUser({ userId });
-    inviteFeedback.value = '成员已移出房间';
+    inviteFeedback.value = t('Medical.Manage.MemberKicked');
     kickConfirmTarget.value = null;
   } catch (error) {
     inviteFeedback.value =
-      error instanceof Error ? error.message : '移出成员失败，请稍后重试';
+      error instanceof Error ? error.message : t('Medical.Manage.KickFailed');
   } finally {
     kickingUserId.value = null;
   }
@@ -622,7 +638,9 @@ const onPatientDeviceInvitationAccepted = (options: {
     return;
   }
   setDeviceInviteState(key, false, 'accepted');
-  inviteFeedback.value = `患者已接受${getDeviceLabel(options.invitation.deviceType)}邀请`;
+  inviteFeedback.value = t('Medical.Manage.PatientAcceptedDeviceInvite', {
+    device: getDeviceLabel(options.invitation.deviceType),
+  });
 };
 
 const onPatientDeviceInvitationDeclined = (options: {
@@ -637,7 +655,9 @@ const onPatientDeviceInvitationDeclined = (options: {
     return;
   }
   setDeviceInviteState(key, false, 'declined');
-  inviteFeedback.value = `患者已拒绝${getDeviceLabel(options.invitation.deviceType)}邀请`;
+  inviteFeedback.value = t('Medical.Manage.PatientDeclinedDeviceInvite', {
+    device: getDeviceLabel(options.invitation.deviceType),
+  });
 };
 
 const onPatientDeviceInvitationTimeout = (options: {
@@ -648,7 +668,9 @@ const onPatientDeviceInvitationTimeout = (options: {
     return;
   }
   setDeviceInviteState(key, false, 'timeout');
-  inviteFeedback.value = `${getDeviceLabel(options.invitation.deviceType)}邀请已超时`;
+  inviteFeedback.value = t('Medical.Manage.DeviceInviteTimeout', {
+    device: getDeviceLabel(options.invitation.deviceType),
+  });
 };
 
 const onPatientDeviceInvitationCancelled = (options: {
@@ -659,7 +681,9 @@ const onPatientDeviceInvitationCancelled = (options: {
     return;
   }
   setDeviceInviteState(key, false, 'cancelled');
-  inviteFeedback.value = `${getDeviceLabel(options.invitation.deviceType)}邀请已取消`;
+  inviteFeedback.value = t('Medical.Manage.DeviceInviteCancelled', {
+    device: getDeviceLabel(options.invitation.deviceType),
+  });
 };
 
 onMounted(() => {
@@ -717,7 +741,7 @@ onBeforeUnmount(() => {
         ]"
       >
         <MessageSquare :size="16" />
-        聊天
+        {{ t('Medical.Manage.Chat') }}
       </button>
       <button
         @click="activeTab = 'transcribe'"
@@ -729,7 +753,7 @@ onBeforeUnmount(() => {
         ]"
       >
         <PenLine :size="16" />
-        转写
+        {{ t('Medical.Manage.Transcribe') }}
       </button>
       <button
         @click="activeTab = 'members'"
@@ -741,7 +765,7 @@ onBeforeUnmount(() => {
         ]"
       >
         <Users :size="16" />
-        成员
+        {{ t('Medical.Manage.Members') }}
       </button>
     </div>
 

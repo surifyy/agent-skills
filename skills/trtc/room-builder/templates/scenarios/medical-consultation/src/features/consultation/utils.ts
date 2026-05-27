@@ -1,4 +1,5 @@
 import { MessageType } from 'tuikit-atomicx-vue3';
+import { medicalT } from '@/i18n/medicalTranslate';
 
 export interface ConsultationMessageLike {
   ID?: string;
@@ -49,15 +50,15 @@ export function getConsultationMessageText(message: ConsultationMessageLike) {
     }
   }
   if (message.type === MessageType.IMAGE) {
-    return '[图片消息]';
+    return medicalT('Medical.Message.ImageMessage');
   }
   if (message.type === MessageType.VIDEO) {
-    return '[视频消息]';
+    return medicalT('Medical.Message.VideoMessage');
   }
   if (message.type === MessageType.FILE) {
-    return '[文件消息]';
+    return medicalT('Medical.Message.FileMessage');
   }
-  return '[暂不支持的消息类型]';
+  return medicalT('Medical.Message.UnsupportedMessage');
 }
 
 export function formatElapsedDuration(seconds: number) {

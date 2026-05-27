@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router';
+import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import {
   ChevronLeft,
   Clock,
@@ -39,6 +40,7 @@ import { getSessionUser } from '@/utils/session';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import MedicalAlert from '@/components/MedicalAlert.vue';
 import MedicalConfirmDialog from '@/components/MedicalConfirmDialog.vue';
+import LanguageSwitch from '@/components/LanguageSwitch.vue';
 
 type CallStage =
   | 'idle'
@@ -53,6 +55,7 @@ const roomState = useRoomState();
 const participantState = useRoomParticipantState();
 const deviceState = useDeviceState();
 const sessionUser = getSessionUser();
+const { t } = useUIKit();
 
 const appointment = computed(() =>
   services.appointment.getAppointmentById(String(route.params.appointmentId))
@@ -68,7 +71,7 @@ const patient = computed(() =>
     : null
 );
 const callStage = ref<CallStage>('idle');
-const callHint = ref('点击呼叫患者，患者端将收到通知并自动接入');
+const callHint = ref(t('Medical.Consultation.CallIdleHint'));
 const isCalling = ref(false);
 const isCancellingCall = ref(false);
 const deviceAction = ref<'camera' | 'microphone' | ''>('');
@@ -124,7 +127,7 @@ const {
   getPatientById: services.user.getPatientById.bind(services.user),
 });
 const mainDisplayName = computed(
-  () => mainVideoMember.value?.displayName || patient.value?.userName || '患者'
+  () => mainVideoMember.value?.displayName || patient.value?.userName || t('Medical.Common.Patient')
 );
 let durationTimer: number | undefined;
 
@@ -156,19 +159,21 @@ async function callPatient() {
   }
   isCalling.value = true;
   isCancellingCall.value = false;
-  setCallState('calling', `正在连接 ${patient.value.userName}`);
+  setCallState('calling', t('Medical.Consultation.ConnectingPatient', { patient: patient.value.userName }));
   try {
     await ensureInRoom();
     await roomState.callUserToRoom({
       roomId: appointment.value.roomId,
       userIdList: [patient.value.userId],
       timeout: 30,
-      extensionInfo: `${doctor.value?.userName ?? '医生'}邀请您加入视频问诊`,
+      extensionInfo: t('Medical.Consultation.InvitePatientMessage', {
+        doctor: doctor.value?.userName ?? t('Medical.Common.Doctor'),
+      }),
     });
   } catch (error) {
     setCallState(
       'rejected',
-      error instanceof Error ? error.message : '呼叫患者失败'
+      error instanceof Error ? error.message : t('Medical.Consultation.CallPatientFailed')
     );
   } finally {
     isCalling.value = false;
@@ -191,11 +196,11 @@ async function cancelPatientCall() {
       roomId: appointment.value.roomId,
       userIdList: [patient.value.userId],
     });
-    setCallState('cancelled', '本次呼叫已取消');
+    setCallState('cancelled', t('Medical.Consultation.CallCancelled'));
   } catch (error) {
     setCallState(
       'rejected',
-      error instanceof Error ? error.message : '取消呼叫失败，请重试'
+      error instanceof Error ? error.message : t('Medical.Consultation.CancelCallFailed')
     );
   } finally {
     isCancellingCall.value = false;
@@ -214,7 +219,7 @@ async function toggleMic() {
       await deviceState.openLocalMicrophone();
     }
   } catch (error) {
-    devicePermissionHint.value = getDeviceErrorHint('麦克风', error);
+    devicePermissionHint.value = getDeviceErrorHint(t('Medical.Device.Microphone'), error);
   } finally {
     deviceAction.value = '';
   }
@@ -232,7 +237,7 @@ async function toggleCamera() {
       await deviceState.openLocalCamera();
     }
   } catch (error) {
-    devicePermissionHint.value = getDeviceErrorHint('摄像头', error);
+    devicePermissionHint.value = getDeviceErrorHint(t('Medical.Device.Camera'), error);
   } finally {
     deviceAction.value = '';
   }
@@ -287,35 +292,35 @@ async function leaveConsultationRoom(targetPath = '/doctor/dashboard') {
 function handleCallAccepted(eventInfo: ConsultationCallEvent) {
   if (eventInfo.call?.callee?.userId === patient.value?.userId) {
     isCancellingCall.value = false;
-    setCallState('accepted', `${patient.value?.userName} 已接听`);
+    setCallState('accepted', t('Medical.Consultation.PatientAccepted', { patient: patient.value?.userName }));
   }
 }
 
 function handleCallRejected(eventInfo: ConsultationCallEvent) {
   if (eventInfo.call?.callee?.userId === patient.value?.userId) {
     isCancellingCall.value = false;
-    setCallState('rejected', `${patient.value?.userName} 拒绝了问诊邀请`);
+    setCallState('rejected', t('Medical.Consultation.PatientRejected', { patient: patient.value?.userName }));
   }
 }
 
 function handleCallTimeout(eventInfo: ConsultationCallEvent) {
   if (eventInfo.call?.callee?.userId === patient.value?.userId) {
     isCancellingCall.value = false;
-    setCallState('timeout', `${patient.value?.userName} 未在规定时间内接听`);
+    setCallState('timeout', t('Medical.Consultation.PatientTimeout', { patient: patient.value?.userName }));
   }
 }
 
 function handleCallCancelled(eventInfo: ConsultationCallEvent) {
   if (eventInfo.call?.callee?.userId === patient.value?.userId) {
     isCancellingCall.value = false;
-    setCallState('cancelled', '本次呼叫已取消');
+    setCallState('cancelled', t('Medical.Consultation.CallCancelled'));
   }
 }
 
 function handleParticipantJoined(eventInfo: ConsultationParticipantEvent) {
   if (eventInfo?.userInfo?.userId === patient.value?.userId) {
     isCancellingCall.value = false;
-    setCallState('accepted', `${patient.value?.userName} 已接入房间`);
+    setCallState('accepted', t('Medical.Consultation.PatientJoined', { patient: patient.value?.userName }));
   }
 }
 
@@ -369,7 +374,7 @@ onBeforeUnmount(() => {
 
 watch(isPatientConnected, connected => {
   if (connected && callStage.value !== 'accepted') {
-    setCallState('accepted', `${patient.value?.userName ?? '患者'} 已接入房间`);
+    setCallState('accepted', t('Medical.Consultation.PatientJoined', { patient: patient.value?.userName ?? t('Medical.Common.Patient') }));
   }
 });
 
@@ -407,8 +412,8 @@ onBeforeRouteLeave(to => {
         </button>
         <div class="h-6 w-px bg-gray-200"></div>
         <div>
-          <h1 class="font-semibold text-gray-900">视频问诊工作台</h1>
-          <p class="text-xs text-gray-500">预约编号：{{ appointment.id }}</p>
+          <h1 class="font-semibold text-gray-900">{{ t('Medical.Consultation.Title') }}</h1>
+          <p class="text-xs text-gray-500">{{ t('Medical.Consultation.AppointmentId', { id: appointment.id }) }}</p>
         </div>
       </div>
 
@@ -430,9 +435,10 @@ onBeforeRouteLeave(to => {
               : 'bg-gray-200 text-gray-700',
           ]"
         >
-          {{ isPatientConnected ? '通话中' : '等待患者' }}
+          {{ isPatientConnected ? t('Medical.Consultation.InCall') : t('Medical.Consultation.WaitingPatient') }}
         </span>
         <div class="h-6 w-px bg-gray-200"></div>
+        <LanguageSwitch />
         <button class="p-2 hover:bg-gray-100 rounded-xl transition-colors">
           <Settings :size="20" class="text-gray-600" />
         </button>
@@ -455,7 +461,7 @@ onBeforeRouteLeave(to => {
               <i class="inline-block w-1.5 h-4 rounded-full bg-[#00D08A]"></i>
               <i class="inline-block w-1.5 h-5 rounded-full bg-[#00D08A]"></i>
             </span>
-            <span class="text-white text-xs leading-none">网络良好</span>
+            <span class="text-white text-xs leading-none">{{ t('Medical.Consultation.NetworkGood') }}</span>
           </div>
 
           <div
@@ -489,7 +495,7 @@ onBeforeRouteLeave(to => {
                 {{ patient.userName }}
               </p>
               <p class="mt-1.5 text-xs leading-none text-white/80">
-                {{ appointment.patientGender }} · {{ appointment.patientAge }}岁
+                {{ t('Medical.Consultation.PatientAge', { gender: appointment.patientGender, age: appointment.patientAge }) }}
               </p>
             </div>
 
@@ -508,13 +514,13 @@ onBeforeRouteLeave(to => {
                   {{ patient.userName }}
                 </h3>
                 <p class="mt-3 text-[20px] leading-none text-white/70">
-                  {{ isCallingStage ? '正在呼叫患者...' : '待接诊患者' }}
+                  {{ isCallingStage ? t('Medical.Consultation.CallingPatient') : t('Medical.Consultation.PendingPatient') }}
                 </p>
                 <p
                   v-if="!localVideoReady"
                   class="mt-3 text-xs text-amber-200/90"
                 >
-                  摄像头已关闭，可点击左下角按钮开启预览
+                  {{ t('Medical.Consultation.CameraPreviewOff') }}
                 </p>
               </div>
             </div>
@@ -581,7 +587,7 @@ onBeforeRouteLeave(to => {
                   class="bg-gradient-to-r from-[#10B981] to-[#0D9488] hover:from-[#0D9488] hover:to-[#0F766E] text-white h-12 px-7 rounded-xl text-lg font-semibold gap-2 shadow-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center"
                 >
                   <Phone :size="20" />
-                  {{ isCallingStage ? '呼叫中...' : '呼叫患者' }}
+                  {{ isCallingStage ? t('Medical.Consultation.Calling') : t('Medical.Consultation.CallPatient') }}
                 </button>
                 <button
                   v-if="isCallingStage"
@@ -590,14 +596,14 @@ onBeforeRouteLeave(to => {
                   class="h-12 px-5 rounded-xl border border-red-300 text-red-200 hover:bg-red-500/10 transition-colors text-base font-medium disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
                 >
                   <LoadingSpinner v-if="isCancellingCall" />
-                  {{ isCancellingCall ? '取消中...' : '取消呼叫' }}
+                  {{ isCancellingCall ? t('Medical.Consultation.Canceling') : t('Medical.Consultation.CancelCall') }}
                 </button>
               </div>
               <p class="mt-3 text-sm text-white/65">
                 {{
                   isCallingStage
-                    ? '患者正在响应并自动接入'
-                    : '点击呼叫患者，患者端将收到通知并自动接入'
+                    ? t('Medical.Consultation.PatientResponding')
+                    : t('Medical.Consultation.CallIdleHint')
                 }}
               </p>
               <p v-if="isErrorStage" class="text-sm text-red-300 mt-2">
@@ -608,7 +614,7 @@ onBeforeRouteLeave(to => {
               v-else
               class="absolute left-1/2 bottom-10 -translate-x-1/2 z-20 rounded-2xl bg-black/35 px-4 py-3 text-sm text-white/75 backdrop-blur-md"
             >
-              等待主治医生呼叫患者
+              {{ t('Medical.Consultation.WaitPrimaryDoctor') }}
             </p>
           </template>
 
@@ -628,7 +634,7 @@ onBeforeRouteLeave(to => {
                 <div
                   class="w-10 h-10 rounded-full bg-[#0D9488] flex items-center justify-center text-white font-medium"
                 >
-                  {{ mainVideoMember?.avatarText || '患' }}
+                  {{ mainVideoMember?.avatarText || t('Medical.Consultation.PatientAvatarFallback') }}
                 </div>
                 <div>
                   <p class="font-medium">{{ mainDisplayName }}</p>
@@ -710,25 +716,25 @@ onBeforeRouteLeave(to => {
         >
           <div class="grid grid-cols-4 gap-6">
             <div>
-              <p class="text-xs text-gray-500 mb-1">主诉</p>
+              <p class="text-xs text-gray-500 mb-1">{{ t('Medical.Consultation.ChiefComplaint') }}</p>
               <p class="text-sm text-gray-900 font-medium">
                 {{ appointment.chiefComplaint }}
               </p>
             </div>
             <div>
-              <p class="text-xs text-gray-500 mb-1">过敏史</p>
+              <p class="text-xs text-gray-500 mb-1">{{ t('Medical.Consultation.AllergyHistory') }}</p>
               <p class="text-sm text-red-600 font-medium">
                 {{ appointment.allergyHistory }}
               </p>
             </div>
             <div>
-              <p class="text-xs text-gray-500 mb-1">既往病史</p>
+              <p class="text-xs text-gray-500 mb-1">{{ t('Medical.Consultation.MedicalHistory') }}</p>
               <p class="text-sm text-gray-900">
                 {{ appointment.medicalHistory }}
               </p>
             </div>
             <div>
-              <p class="text-xs text-gray-500 mb-1">联系电话</p>
+              <p class="text-xs text-gray-500 mb-1">{{ t('Medical.Consultation.Phone') }}</p>
               <p class="text-sm text-gray-900 font-mono">
                 {{ appointment.patientPhone }}
               </p>
@@ -758,10 +764,10 @@ onBeforeRouteLeave(to => {
 
     <MedicalConfirmDialog
       :visible="finishConfirmVisible"
-      title="确认结束问诊？"
-      message="结束后患者会离开当前视频问诊，并进入问诊完成页。请确认诊疗内容已沟通完成。"
-      cancel-text="继续问诊"
-      confirm-text="确认结束"
+      :title="t('Medical.Consultation.FinishTitle')"
+      :message="t('Medical.Consultation.FinishMessage')"
+      :cancel-text="t('Medical.Consultation.ContinueConsultation')"
+      :confirm-text="t('Medical.Consultation.ConfirmFinish')"
       :loading="consultationClosing"
       danger
       @cancel="cancelFinishConsultation"

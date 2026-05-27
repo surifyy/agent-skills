@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import MedicalButton from '@/components/MedicalButton.vue';
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     visible: boolean;
     title: string;
@@ -12,11 +14,16 @@ withDefaults(
     danger?: boolean;
   }>(),
   {
-    confirmText: '确认',
-    cancelText: '取消',
     loading: false,
     danger: false,
   }
+);
+const { t } = useUIKit();
+const displayConfirmText = computed(
+  () => props.confirmText || t('Medical.Common.Confirm')
+);
+const displayCancelText = computed(
+  () => props.cancelText || t('Medical.Common.Cancel')
 );
 
 const emit = defineEmits<{
@@ -45,14 +52,14 @@ const emit = defineEmits<{
             :disabled="loading"
             @click="emit('cancel')"
           >
-            {{ cancelText }}
+            {{ displayCancelText }}
           </MedicalButton>
           <MedicalButton
             :variant="danger ? 'danger' : 'primary'"
             :loading="loading"
             @click="emit('confirm')"
           >
-            {{ loading ? '处理中...' : confirmText }}
+            {{ loading ? t('Medical.Common.Processing') : displayConfirmText }}
           </MedicalButton>
         </div>
       </div>

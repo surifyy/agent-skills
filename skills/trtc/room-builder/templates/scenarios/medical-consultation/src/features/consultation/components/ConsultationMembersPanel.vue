@@ -8,6 +8,7 @@ import {
   UserX,
   Video,
 } from '@/shared/icons';
+import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import { DeviceType } from 'tuikit-atomicx-vue3';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import type {
@@ -24,6 +25,7 @@ defineProps<{
   patientDeviceInvitePending: { camera: boolean; microphone: boolean };
   patientDeviceInviteLoading: { camera: boolean; microphone: boolean };
 }>();
+const { t } = useUIKit();
 
 const emit = defineEmits<{
   openInvite: [];
@@ -38,9 +40,11 @@ const emit = defineEmits<{
 <template>
   <div class="h-full min-h-0 flex flex-col">
     <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-      <h3 class="font-semibold text-gray-900">成员管理</h3>
+      <h3 class="font-semibold text-gray-900">
+        {{ t('Medical.Manage.MemberManagement') }}
+      </h3>
       <span class="px-3 py-1 rounded-full border border-gray-200 text-sm font-medium">
-        {{ memberCards.length }} 人
+        {{ t('Medical.Manage.MemberCount', { count: memberCards.length }) }}
       </span>
     </div>
 
@@ -51,7 +55,7 @@ const emit = defineEmits<{
         class="w-full h-11 rounded-xl border border-dashed border-[#0D9488] text-[#0D9488] font-semibold hover:bg-[#F0FDFA] transition-colors inline-flex items-center justify-center gap-2"
       >
         <UserPlus :size="18" />
-        邀请会诊医生
+        {{ t('Medical.Manage.InviteDoctor') }}
       </button>
 
       <div class="space-y-3">
@@ -98,7 +102,7 @@ const emit = defineEmits<{
                 "
                 :disabled="kickingUserId === member.userId"
                 class="w-8 h-8 rounded-full text-[#94A3B8] hover:bg-red-50 hover:text-red-500 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center"
-                title="踢出成员"
+                :title="t('Medical.Manage.KickMember')"
               >
                 <LoadingSpinner v-if="kickingUserId === member.userId" />
                 <UserX v-else :size="18" />
@@ -125,7 +129,9 @@ const emit = defineEmits<{
                       : 'bg-[#FEE2E2] border-[#FCA5A5] text-[#EF4444]',
                 ]"
                 :title="
-                  member.cameraOn ? '关闭患者摄像头' : '邀请患者打开摄像头'
+                  member.cameraOn
+                    ? t('Medical.Manage.ClosePatientCamera')
+                    : t('Medical.Manage.InvitePatientCamera')
                 "
               >
                 <LoadingSpinner v-if="patientDeviceInviteLoading.camera" />
@@ -165,7 +171,9 @@ const emit = defineEmits<{
                       : 'bg-[#FEE2E2] border-[#FCA5A5] text-[#EF4444]',
                 ]"
                 :title="
-                  member.microphoneOn ? '关闭患者麦克风' : '邀请患者打开麦克风'
+                  member.microphoneOn
+                    ? t('Medical.Manage.ClosePatientMicrophone')
+                    : t('Medical.Manage.InvitePatientMicrophone')
                 "
               >
                 <LoadingSpinner v-if="patientDeviceInviteLoading.microphone" />
@@ -199,7 +207,11 @@ const emit = defineEmits<{
               v-if="cancellingDoctorId === member.userId"
               class="mr-1"
             />
-            {{ cancellingDoctorId === member.userId ? '取消中' : '取消邀请' }}
+            {{
+              cancellingDoctorId === member.userId
+                ? t('Medical.Common.Canceling')
+                : t('Medical.Manage.CancelInvite')
+            }}
           </button>
         </div>
       </div>
@@ -209,9 +221,9 @@ const emit = defineEmits<{
       </p>
 
       <div class="pt-2 text-xs text-gray-500 leading-6">
-        <p>• 主治医生拥有邀请、移出和患者设备管理权限</p>
-        <p>• 会诊医生可发言、聊天和查看转写</p>
-        <p>• 患者仅可参与视频通话</p>
+        <p>• {{ t('Medical.Manage.PermissionTip1') }}</p>
+        <p>• {{ t('Medical.Manage.PermissionTip2') }}</p>
+        <p>• {{ t('Medical.Manage.PermissionTip3') }}</p>
       </div>
     </div>
   </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import {
   Stethoscope,
   Bell,
@@ -25,10 +26,12 @@ import { clearSession, getSessionUser } from '@/utils/session';
 import { formatTimeRange } from '@/utils/format';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import MedicalButton from '@/components/MedicalButton.vue';
+import LanguageSwitch from '@/components/LanguageSwitch.vue';
 
 const router = useRouter();
 const loginState = useLoginState();
 const roomState = useRoomState();
+const { t } = useUIKit();
 
 const loading = ref(false);
 const syncing = ref(false);
@@ -43,8 +46,14 @@ const consultationInvite = ref<{
 const joiningInvite = ref(false);
 const inviteDetailsVisible = ref(false);
 const actionMessage = ref('');
-const activeFilter = ref('全部');
-const filters = ['全部', '待接诊', '进行中'];
+type AppointmentFilter = 'all' | 'waiting' | 'running';
+
+const activeFilter = ref<AppointmentFilter>('all');
+const filters = computed<Array<{ value: AppointmentFilter; label: string }>>(() => [
+  { value: 'all', label: t('Medical.DoctorDashboard.All') },
+  { value: 'waiting', label: t('Medical.DoctorDashboard.Waiting') },
+  { value: 'running', label: t('Medical.DoctorDashboard.Running') },
+]);
 
 const doctor = computed(() => getSessionUser());
 const doctorAppointments = computed(() =>
@@ -68,10 +77,10 @@ const appointmentCards = computed(() =>
 );
 
 const filteredAppointmentCards = computed(() => {
-  if (activeFilter.value === '全部') {
+  if (activeFilter.value === 'all') {
     return appointmentCards.value;
   }
-  if (activeFilter.value === '待接诊') {
+  if (activeFilter.value === 'waiting') {
     return appointmentCards.value.filter(
       item => item.scheduled?.roomStatus !== RoomStatus.Running
     );
@@ -92,25 +101,25 @@ const stats = computed(() => {
   const syncedRooms = roomState.scheduledRoomList.value.length;
   return [
     {
-      title: '今日接诊',
+      title: t('Medical.DoctorDashboard.StatToday'),
       value: String(total),
       icon: Users,
       color: 'bg-gradient-to-br from-blue-500 to-blue-600',
     },
     {
-      title: '待接诊',
+      title: t('Medical.DoctorDashboard.StatWaiting'),
       value: String(scheduled),
       icon: Clock,
       color: 'bg-gradient-to-br from-yellow-500 to-yellow-600',
     },
     {
-      title: '进行中',
+      title: t('Medical.DoctorDashboard.StatRunning'),
       value: String(running),
       icon: CheckCircle,
       color: 'bg-gradient-to-br from-green-500 to-green-600',
     },
     {
-      title: '已同步房间',
+      title: t('Medical.DoctorDashboard.StatSynced'),
       value: String(syncedRooms),
       icon: TrendingUp,
       color: 'bg-gradient-to-br from-purple-500 to-purple-600',
@@ -178,10 +187,10 @@ async function syncAppointments() {
       });
     }
     await loadScheduledRooms();
-    actionMessage.value = '今日预约已刷新，可由客户替换为自有预约接口';
+    actionMessage.value = t('Medical.DoctorDashboard.RefreshSuccess');
   } catch (error) {
     actionMessage.value =
-      error instanceof Error ? error.message : '预约刷新失败';
+      error instanceof Error ? error.message : t('Medical.DoctorDashboard.RefreshFailed');
   } finally {
     syncing.value = false;
   }
@@ -201,7 +210,7 @@ async function startConsultation(appointmentId: string, roomId: string) {
       await roomState.createAndJoinRoom({
         roomId,
         options: {
-          roomName: `${doctor.value?.userName ?? '医生'} · ${appointment.id}`,
+          roomName: `${doctor.value?.userName ?? t('Medical.Common.Doctor')} · ${appointment.id}`,
         },
       });
     } catch {
@@ -210,7 +219,7 @@ async function startConsultation(appointmentId: string, roomId: string) {
     await router.push(`/doctor/consultation/${appointmentId}`);
   } catch (error) {
     actionMessage.value =
-      error instanceof Error ? error.message : '进入问诊房间失败，请重试';
+      error instanceof Error ? error.message : t('Medical.DoctorDashboard.EnterFailed');
   } finally {
     startingAppointmentId.value = '';
   }
@@ -279,7 +288,7 @@ async function joinConsultationInvite() {
     dismissConsultationInvite();
   } catch (error) {
     actionMessage.value =
-      error instanceof Error ? error.message : '加入会诊失败，请稍后重试';
+      error instanceof Error ? error.message : t('Medical.DoctorDashboard.JoinInviteFailed');
   } finally {
     joiningInvite.value = false;
   }
@@ -343,12 +352,13 @@ onBeforeUnmount(() => {
             <Stethoscope :size="24" class="text-white" />
           </div>
           <div>
-            <h1 class="text-xl font-semibold text-gray-900">医生工作台</h1>
-            <p class="text-sm text-gray-500">医疗音视频场景化接入模板</p>
+            <h1 class="text-xl font-semibold text-gray-900">{{ t('Medical.DoctorDashboard.Title') }}</h1>
+            <p class="text-sm text-gray-500">{{ t('Medical.DoctorDashboard.Subtitle') }}</p>
           </div>
         </div>
 
         <div class="flex items-center gap-4">
+          <LanguageSwitch />
           <button
             class="p-2 hover:bg-gray-100 rounded-xl transition-colors relative"
           >
@@ -388,14 +398,14 @@ onBeforeUnmount(() => {
       <div class="flex items-end justify-between gap-4 mb-6">
         <div>
           <h2 class="text-3xl font-semibold text-gray-900 mb-2">
-            今天有 {{ stats[0]?.value }} 个预约患者
+            {{ t('Medical.DoctorDashboard.TodayAppointments', { count: stats[0]?.value }) }}
           </h2>
           <p class="text-sm text-gray-500">
-            {{ doctor?.hospital }} · 当前登录医生 {{ doctor?.userName }}
+            {{ t('Medical.DoctorDashboard.CurrentDoctor', { hospital: doctor?.hospital, doctor: doctor?.userName }) }}
           </p>
         </div>
         <MedicalButton @click="syncAppointments" :loading="syncing">
-          {{ syncing ? '刷新中...' : '刷新今日预约' }}
+          {{ syncing ? t('Medical.DoctorDashboard.Refreshing') : t('Medical.DoctorDashboard.RefreshToday') }}
         </MedicalButton>
       </div>
 
@@ -444,22 +454,21 @@ onBeforeUnmount(() => {
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 mb-1">
-                <h4 class="font-semibold text-gray-900">会诊邀请</h4>
+                <h4 class="font-semibold text-gray-900">{{ t('Medical.DoctorDashboard.ConsultationInvite') }}</h4>
                 <span
                   class="bg-indigo-500 text-white rounded-full px-3 py-0.5 text-xs font-medium"
                 >
-                  待处理
+                  {{ t('Medical.DoctorDashboard.Pending') }}
                 </span>
               </div>
               <p class="text-sm text-gray-700 leading-6">
-                <span class="font-medium text-indigo-600">
-                  {{ consultationInvite.fromDoctor?.userName || '医生' }}
-                </span>
-                （{{ consultationInvite.fromDoctor?.department || '未知科室' }}）邀请您参与患者
-                <span class="font-medium">
-                  {{ consultationInvite.patient?.userName || '患者' }}
-                </span>
-                的会诊
+                {{
+                  t('Medical.DoctorDashboard.InviteSummary', {
+                    doctor: consultationInvite.fromDoctor?.userName || t('Medical.Common.Doctor'),
+                    department: consultationInvite.fromDoctor?.department || t('Medical.Common.UnknownDepartment'),
+                    patient: consultationInvite.patient?.userName || t('Medical.Common.Patient'),
+                  })
+                }}
               </p>
             </div>
           </div>
@@ -470,7 +479,7 @@ onBeforeUnmount(() => {
               class="rounded-xl gap-2 h-11 px-4 border border-indigo-200 text-indigo-600 hover:bg-indigo-50 inline-flex items-center justify-center font-medium transition-colors"
             >
               <FileText class="w-4 h-4" />
-              查看详情
+              {{ t('Medical.DoctorDashboard.ViewDetails') }}
             </button>
             <button
               type="button"
@@ -480,7 +489,7 @@ onBeforeUnmount(() => {
             >
               <LoadingSpinner v-if="joiningInvite" />
               <Video v-else class="w-4 h-4" />
-              {{ joiningInvite ? '加入中...' : '立即加入' }}
+              {{ joiningInvite ? t('Medical.DoctorDashboard.Joining') : t('Medical.DoctorDashboard.JoinNow') }}
             </button>
             <button
               type="button"
@@ -497,24 +506,24 @@ onBeforeUnmount(() => {
         <div class="p-6 border-b border-gray-100">
           <div class="flex items-center justify-between gap-4">
             <div>
-              <h2 class="text-lg font-semibold text-gray-900">待接诊患者</h2>
+              <h2 class="text-lg font-semibold text-gray-900">{{ t('Medical.DoctorDashboard.WaitingPatients') }}</h2>
               <p class="text-sm text-gray-500 mt-1">
-                {{ loading ? '正在加载预约房间...' : '按预约时间排序' }}
+                {{ loading ? t('Medical.DoctorDashboard.LoadingAppointments') : t('Medical.DoctorDashboard.SortByTime') }}
               </p>
             </div>
             <div class="flex items-center gap-2">
               <button
                 v-for="filter in filters"
-                :key="filter"
-                @click="activeFilter = filter"
+                :key="filter.value"
+                @click="activeFilter = filter.value"
                 :class="[
                   'px-4 py-2 rounded-xl text-sm font-medium transition-all',
-                  activeFilter === filter
+                  activeFilter === filter.value
                     ? 'bg-[#0D9488] text-white'
                     : 'text-gray-600 hover:bg-gray-100',
                 ]"
               >
-                {{ filter }}
+                {{ filter.label }}
               </button>
             </div>
           </div>
@@ -539,7 +548,7 @@ onBeforeUnmount(() => {
                       {{ item.patient?.userName }}
                     </h3>
                     <span class="text-sm text-gray-500">
-                      {{ item.patientGender }} · {{ item.patientAge }}岁
+                      {{ t('Medical.DoctorDashboard.PatientAge', { gender: item.patientGender, age: item.patientAge }) }}
                     </span>
                     <span
                       :class="[
@@ -551,8 +560,8 @@ onBeforeUnmount(() => {
                     >
                       {{
                         item.scheduled?.roomStatus === RoomStatus.Running
-                          ? '问诊进行中'
-                          : '待接诊'
+                          ? t('Medical.DoctorDashboard.ConsultationRunning')
+                          : t('Medical.DoctorDashboard.Waiting')
                       }}
                     </span>
                   </div>
@@ -584,7 +593,7 @@ onBeforeUnmount(() => {
               >
                 <Video v-if="startingAppointmentId !== item.id" :size="16" />
                 {{
-                  startingAppointmentId === item.id ? '进入中...' : '开始接诊'
+                  startingAppointmentId === item.id ? t('Medical.Common.Entering') : t('Medical.DoctorDashboard.StartConsultation')
                 }}
               </MedicalButton>
             </div>
@@ -601,9 +610,9 @@ onBeforeUnmount(() => {
       <div class="w-full max-w-[460px] rounded-3xl bg-white p-6 shadow-2xl">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <h3 class="text-lg font-semibold text-gray-900">会诊邀请详情</h3>
+            <h3 class="text-lg font-semibold text-gray-900">{{ t('Medical.DoctorDashboard.InviteDetails') }}</h3>
             <p class="mt-1 text-sm text-gray-500">
-              预约编号：{{ consultationInvite.appointment.id }}
+              {{ t('Medical.DoctorDashboard.AppointmentId', { id: consultationInvite.appointment.id }) }}
             </p>
           </div>
           <button
@@ -617,28 +626,27 @@ onBeforeUnmount(() => {
 
         <div class="mt-5 space-y-4 text-sm">
           <div class="rounded-2xl bg-indigo-50 px-4 py-3">
-            <p class="text-gray-500">邀请医生</p>
+            <p class="text-gray-500">{{ t('Medical.DoctorDashboard.InvitingDoctor') }}</p>
             <p class="mt-1 font-medium text-gray-900">
-              {{ consultationInvite.fromDoctor?.userName || '医生' }}
-              · {{ consultationInvite.fromDoctor?.department || '未知科室' }}
+              {{ consultationInvite.fromDoctor?.userName || t('Medical.Common.Doctor') }}
+              · {{ consultationInvite.fromDoctor?.department || t('Medical.Common.UnknownDepartment') }}
             </p>
           </div>
           <div class="rounded-2xl bg-gray-50 px-4 py-3">
-            <p class="text-gray-500">患者信息</p>
+            <p class="text-gray-500">{{ t('Medical.DoctorDashboard.PatientInfo') }}</p>
             <p class="mt-1 font-medium text-gray-900">
-              {{ consultationInvite.patient?.userName || '患者' }}
-              · {{ consultationInvite.appointment.patientGender }}
-              · {{ consultationInvite.appointment.patientAge }}岁
+              {{ consultationInvite.patient?.userName || t('Medical.Common.Patient') }}
+              · {{ t('Medical.DoctorDashboard.PatientAge', { gender: consultationInvite.appointment.patientGender, age: consultationInvite.appointment.patientAge }) }}
             </p>
           </div>
           <div class="rounded-2xl bg-gray-50 px-4 py-3">
-            <p class="text-gray-500">主诉</p>
+            <p class="text-gray-500">{{ t('Medical.DoctorDashboard.ChiefComplaint') }}</p>
             <p class="mt-1 font-medium text-gray-900">
               {{ consultationInvite.appointment.chiefComplaint }}
             </p>
           </div>
           <div class="rounded-2xl bg-red-50 px-4 py-3">
-            <p class="text-red-500">过敏史</p>
+            <p class="text-red-500">{{ t('Medical.DoctorDashboard.AllergyHistory') }}</p>
             <p class="mt-1 font-medium text-red-700">
               {{ consultationInvite.appointment.allergyHistory }}
             </p>
@@ -651,7 +659,7 @@ onBeforeUnmount(() => {
             @click="inviteDetailsVisible = false"
             class="h-11 px-4 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50"
           >
-            稍后处理
+            {{ t('Medical.DoctorDashboard.HandleLater') }}
           </button>
           <button
             type="button"
@@ -661,7 +669,7 @@ onBeforeUnmount(() => {
           >
             <LoadingSpinner v-if="joiningInvite" />
             <Video v-else class="w-4 h-4" />
-            {{ joiningInvite ? '加入中...' : '立即加入' }}
+            {{ joiningInvite ? t('Medical.DoctorDashboard.Joining') : t('Medical.DoctorDashboard.JoinNow') }}
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import { Send } from '@/shared/icons';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import {
@@ -18,6 +19,7 @@ defineProps<{
 }>();
 
 const chatInput = defineModel<string>('chatInput', { default: '' });
+const { t } = useUIKit();
 const emit = defineEmits<{
   send: [];
 }>();
@@ -41,7 +43,7 @@ function getMessageTime(message: ConsultationMessageLike) {
       <div
         class="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 text-xs text-blue-700"
       >
-        对话内容已加密，可直接与患者实时沟通。当前仅展示会诊场景文本消息。
+        {{ t('Medical.Chat.EncryptedNotice') }}
       </div>
     </div>
     <div class="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
@@ -92,7 +94,7 @@ function getMessageTime(message: ConsultationMessageLike) {
         v-if="messages.length === 0"
         class="text-center text-sm text-gray-400 py-8"
       >
-        {{ activeConversationId ? '暂无聊天消息' : '正在初始化会话...' }}
+        {{ activeConversationId ? t('Medical.Chat.Empty') : t('Medical.Chat.Initializing') }}
       </div>
     </div>
     <div class="p-4 border-t border-gray-100">
@@ -101,7 +103,7 @@ function getMessageTime(message: ConsultationMessageLike) {
           v-model="chatInput"
           @keyup.enter="emit('send')"
           class="flex-1 h-10 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-[#0D9488]"
-          placeholder="输入消息..."
+          :placeholder="t('Medical.Chat.InputPlaceholder')"
         />
         <button
           @click="emit('send')"
@@ -114,7 +116,7 @@ function getMessageTime(message: ConsultationMessageLike) {
       </div>
       <div class="mt-2 flex items-center justify-between text-xs">
         <span class="text-red-500">{{ chatError }}</span>
-        <span class="text-gray-400">{{ messages.length }} 条消息</span>
+        <span class="text-gray-400">{{ t('Medical.Chat.MessageCount', { count: messages.length }) }}</span>
       </div>
     </div>
   </div>

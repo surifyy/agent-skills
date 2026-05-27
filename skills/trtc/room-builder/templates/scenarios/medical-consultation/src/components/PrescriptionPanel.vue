@@ -5,26 +5,29 @@
         <div>
           <h3 class="font-semibold text-gray-900 flex items-center gap-2">
             <Pill :size="20" class="text-[#0D9488]" />
-            处方表单示例
+            {{ t('Medical.Prescription.Title') }}
           </h3>
           <p class="text-xs text-gray-500 mt-1">
-            客户可替换为自有处方系统或审核流
+            {{ t('Medical.Prescription.Description') }}
           </p>
         </div>
         <span
           class="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700"
         >
-          业务插槽示例
+          {{ t('Medical.Record.SlotExample') }}
         </span>
       </div>
 
       <div class="bg-[#F1F5F9] rounded-xl p-3 text-sm">
         <div class="flex items-center justify-between">
           <span class="text-gray-600">
-            患者：
+            {{ t('Medical.Record.PatientLabel') }}
             <span class="font-medium text-gray-900 ml-1">
-              {{ patientInfo.name }} · {{ patientInfo.gender }} ·
-              {{ patientInfo.age }}岁
+              {{ patientInfo.name }} ·
+              {{ t('Medical.DoctorDashboard.PatientAge', {
+                gender: patientInfo.gender,
+                age: patientInfo.age,
+              }) }}
             </span>
           </span>
         </div>
@@ -36,7 +39,9 @@
       >
         <ShieldAlert :size="16" class="text-red-600 mt-0.5 shrink-0" />
         <div>
-          <p class="text-xs font-medium text-red-900">过敏史警告</p>
+          <p class="text-xs font-medium text-red-900">
+            {{ t('Medical.Prescription.AllergyWarning') }}
+          </p>
           <p class="text-xs text-red-700 mt-0.5">
             {{ patientInfo.allergy_history }}
           </p>
@@ -45,11 +50,13 @@
     </div>
 
     <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 shrink-0">
-      <label class="text-gray-700 text-xs mb-2 block font-medium">诊断信息</label>
+      <label class="text-gray-700 text-xs mb-2 block font-medium">
+        {{ t('Medical.Prescription.Diagnosis') }}
+      </label>
       <div class="flex gap-2">
         <input
           v-model="diagnosisCode"
-          placeholder="请输入诊断（必填）"
+          :placeholder="t('Medical.Prescription.DiagnosisPlaceholder')"
           class="flex-1 rounded-xl border border-gray-200 text-sm h-10 px-4 focus:border-[#0D9488] focus:outline-none focus:ring-2 focus:ring-[#0D9488]/20"
         />
         <button
@@ -71,7 +78,7 @@
             <span
               class="text-xs bg-gradient-to-r from-[#0D9488]/10 to-[#0F766E]/10 text-[#0D9488] border border-[#0D9488]/20 px-3 py-1 rounded-full"
             >
-              药品 {{ index + 1 }}
+              {{ t('Medical.Prescription.MedicineIndex', { index: index + 1 }) }}
             </span>
             <button
               @click="removeMedicine(medicine.id)"
@@ -83,77 +90,91 @@
 
           <div class="space-y-3">
             <div>
-              <label class="text-xs text-gray-600 mb-1 block">药品名称 *</label>
+              <label class="text-xs text-gray-600 mb-1 block">
+                {{ t('Medical.Prescription.MedicineName') }}
+              </label>
               <input
                 v-model="medicine.name"
-                placeholder="请输入药品名称"
+                :placeholder="t('Medical.Prescription.MedicineNamePlaceholder')"
                 class="w-full rounded-xl border border-gray-200 text-sm h-9 px-3 focus:border-[#0D9488] focus:outline-none"
               />
             </div>
 
             <div>
-              <label class="text-xs text-gray-600 mb-1 block">规格</label>
+              <label class="text-xs text-gray-600 mb-1 block">
+                {{ t('Medical.Prescription.Spec') }}
+              </label>
               <input
                 v-model="medicine.spec"
-                placeholder="如：0.25g*24粒"
+                :placeholder="t('Medical.Prescription.SpecPlaceholder')"
                 class="w-full rounded-xl border border-gray-200 text-sm h-9 px-3 focus:border-[#0D9488] focus:outline-none"
               />
             </div>
 
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="text-xs text-gray-600 mb-1 block">单次剂量</label>
+                <label class="text-xs text-gray-600 mb-1 block">
+                  {{ t('Medical.Prescription.Dosage') }}
+                </label>
                 <input
                   v-model="medicine.dosage"
-                  placeholder="如：1粒"
+                  :placeholder="t('Medical.Prescription.DosagePlaceholder')"
                   class="w-full rounded-xl border border-gray-200 text-sm h-9 px-3 focus:border-[#0D9488] focus:outline-none"
                 />
               </div>
               <div>
-                <label class="text-xs text-gray-600 mb-1 block">频次</label>
+                <label class="text-xs text-gray-600 mb-1 block">
+                  {{ t('Medical.Prescription.Frequency') }}
+                </label>
                 <select
                   v-model="medicine.frequency"
                   class="w-full rounded-xl border border-gray-200 text-sm h-9 px-3 focus:border-[#0D9488] focus:outline-none"
                 >
-                  <option value="qd">每日1次</option>
-                  <option value="bid">每日2次</option>
-                  <option value="tid">每日3次</option>
-                  <option value="qid">每日4次</option>
-                  <option value="qn">睡前</option>
+                  <option value="qd">{{ t('Medical.Prescription.QD') }}</option>
+                  <option value="bid">{{ t('Medical.Prescription.BID') }}</option>
+                  <option value="tid">{{ t('Medical.Prescription.TID') }}</option>
+                  <option value="qid">{{ t('Medical.Prescription.QID') }}</option>
+                  <option value="qn">{{ t('Medical.Prescription.QN') }}</option>
                 </select>
               </div>
             </div>
 
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="text-xs text-gray-600 mb-1 block">用药天数</label>
+                <label class="text-xs text-gray-600 mb-1 block">
+                  {{ t('Medical.Prescription.DurationDays') }}
+                </label>
                 <input
                   v-model="medicine.duration"
                   type="number"
-                  placeholder="天"
+                  :placeholder="t('Medical.Prescription.DayPlaceholder')"
                   class="w-full rounded-xl border border-gray-200 text-sm h-9 px-3 focus:border-[#0D9488] focus:outline-none"
                 />
               </div>
               <div>
-                <label class="text-xs text-gray-600 mb-1 block">总量</label>
+                <label class="text-xs text-gray-600 mb-1 block">
+                  {{ t('Medical.Prescription.Quantity') }}
+                </label>
                 <input
                   v-model="medicine.quantity"
-                  placeholder="自动计算"
+                  :placeholder="t('Medical.Prescription.AutoCalculate')"
                   class="w-full rounded-xl border border-gray-200 text-sm h-9 px-3 focus:border-[#0D9488] focus:outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <label class="text-xs text-gray-600 mb-1 block">用法</label>
+              <label class="text-xs text-gray-600 mb-1 block">
+                {{ t('Medical.Prescription.Usage') }}
+              </label>
               <select
                 v-model="medicine.usage"
                 class="w-full rounded-xl border border-gray-200 text-sm h-9 px-3 focus:border-[#0D9488] focus:outline-none"
               >
-                <option value="口服">口服</option>
-                <option value="外用">外用</option>
-                <option value="注射">注射</option>
-                <option value="雾化">雾化吸入</option>
+                <option value="oral">{{ t('Medical.Prescription.Oral') }}</option>
+                <option value="external">{{ t('Medical.Prescription.External') }}</option>
+                <option value="injection">{{ t('Medical.Prescription.Injection') }}</option>
+                <option value="nebulization">{{ t('Medical.Prescription.Nebulization') }}</option>
               </select>
             </div>
           </div>
@@ -164,11 +185,13 @@
           class="w-full rounded-xl border-dashed border-2 border-gray-300 h-12 gap-2 hover:border-[#0D9488] hover:text-[#0D9488] transition-colors flex items-center justify-center font-medium text-sm text-gray-600"
         >
           <Plus :size="16" />
-          添加药品
+          {{ t('Medical.Prescription.AddMedicine') }}
         </button>
 
         <div v-if="medicines.length === 0" class="mt-6">
-          <label class="text-gray-700 text-sm mb-3 block font-medium">常用药品</label>
+          <label class="text-gray-700 text-sm mb-3 block font-medium">
+            {{ t('Medical.Prescription.CommonMedicines') }}
+          </label>
           <div class="grid grid-cols-1 gap-2">
             <button
               v-for="(med, index) in commonMedicines"
@@ -192,12 +215,12 @@
             class="font-medium text-blue-900 mb-2 text-sm flex items-center gap-2"
           >
             <AlertCircle :size="16" />
-            用药指导
+            {{ t('Medical.Prescription.Guidance') }}
           </h4>
           <ul class="text-xs text-blue-800 space-y-1">
-            <li>• 请按医嘱规定剂量和时间服药</li>
-            <li>• 如出现不适请立即停药并联系医生</li>
-            <li>• 妥善保存药品，注意有效期</li>
+            <li>• {{ t('Medical.Prescription.Guidance1') }}</li>
+            <li>• {{ t('Medical.Prescription.Guidance2') }}</li>
+            <li>• {{ t('Medical.Prescription.Guidance3') }}</li>
           </ul>
         </div>
       </div>
@@ -211,24 +234,25 @@
           class="flex-1 bg-[#0D9488] hover:bg-[#0F766E] text-white rounded-xl h-11 gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center transition-colors"
         >
           <FileText :size="16" />
-          提交示例数据
+          {{ t('Medical.Record.SubmitDemo') }}
         </button>
         <button
           class="px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
         >
-          预览
+          {{ t('Medical.Record.Preview') }}
         </button>
       </div>
       <div class="flex items-start gap-2 text-xs text-gray-500">
         <CheckCircle2 :size="12" class="mt-0.5 shrink-0" />
-        <p>当前仅演示表单结构与提交流程，实际审核与购药逻辑建议接入客户系统</p>
+        <p>{{ t('Medical.Prescription.FooterTip') }}</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import {
   Pill,
   ShieldAlert,
@@ -260,6 +284,7 @@ interface Medicine {
 defineProps<{
   patientInfo: PatientInfo;
 }>();
+const { t } = useUIKit();
 
 const emit = defineEmits<{
   submit: [
@@ -273,12 +298,28 @@ const emit = defineEmits<{
 const medicines = ref<Medicine[]>([]);
 const diagnosisCode = ref('');
 
-const commonMedicines = [
-  { name: '阿莫西林胶囊', spec: '0.25g*24粒', category: '抗生素' },
-  { name: '布洛芬缓释胶囊', spec: '0.3g*20粒', category: '解热镇痛' },
-  { name: '氨溴索口服液', spec: '15mg/5ml*100ml', category: '化痰止咳' },
-  { name: '蒙脱石散', spec: '3g*10袋', category: '止泻' },
-];
+const commonMedicines = computed(() => [
+  {
+    name: t('Medical.Prescription.Amoxicillin'),
+    spec: t('Medical.Prescription.AmoxicillinSpec'),
+    category: t('Medical.Prescription.Antibiotic'),
+  },
+  {
+    name: t('Medical.Prescription.Ibuprofen'),
+    spec: t('Medical.Prescription.IbuprofenSpec'),
+    category: t('Medical.Prescription.Antipyretic'),
+  },
+  {
+    name: t('Medical.Prescription.Ambroxol'),
+    spec: t('Medical.Prescription.AmbroxolSpec'),
+    category: t('Medical.Prescription.Expectorant'),
+  },
+  {
+    name: t('Medical.Prescription.Montmorillonite'),
+    spec: t('Medical.Prescription.MontmorilloniteSpec'),
+    category: t('Medical.Prescription.Antidiarrheal'),
+  },
+]);
 
 const addMedicine = () => {
   const newMedicine: Medicine = {
@@ -289,21 +330,21 @@ const addMedicine = () => {
     frequency: 'tid',
     duration: '7',
     quantity: '',
-    usage: '口服',
+    usage: 'oral',
   };
   medicines.value.push(newMedicine);
 };
 
-const addCommonMedicine = (med: (typeof commonMedicines)[number]) => {
+const addCommonMedicine = (med: (typeof commonMedicines.value)[number]) => {
   const newMedicine: Medicine = {
     id: Date.now().toString(),
     name: med.name,
     spec: med.spec,
-    dosage: '1粒',
+    dosage: t('Medical.Prescription.DosageOneCapsule'),
     frequency: 'tid',
     duration: '7',
-    quantity: '21粒',
-    usage: '口服',
+    quantity: t('Medical.Prescription.Quantity21'),
+    usage: 'oral',
   };
   medicines.value.push(newMedicine);
 };
@@ -317,6 +358,6 @@ const handleIssuePrescription = () => {
     diagnosisCode: diagnosisCode.value,
     medicines: medicines.value.map(item => ({ ...item })),
   });
-  window.alert('已触发处方示例提交，请在上层接入客户业务系统');
+  window.alert(t('Medical.Prescription.SubmitAlert'));
 };
 </script>

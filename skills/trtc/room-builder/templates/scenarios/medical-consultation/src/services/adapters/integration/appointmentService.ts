@@ -2,6 +2,7 @@ import type {
   AppointmentService,
   MedicalAppointment,
 } from '@/services/adapters/types';
+import { medicalT } from '@/i18n/medicalTranslate';
 import { getRequiredLaunchContext } from '@/services/adapters/integration/launchContext';
 
 function getLaunchAppointmentId() {
@@ -38,11 +39,11 @@ function buildIntegrationAppointment(
     patientId,
     scheduleStartTime: now,
     scheduleEndTime: now + 30 * 60,
-    chiefComplaint: '示例主诉，请替换为客户预约系统返回的诊前信息',
-    allergyHistory: '请替换为客户业务数据',
-    medicalHistory: '请替换为客户业务数据',
+    chiefComplaint: medicalT('Medical.Mock.IntegrationChiefComplaint'),
+    allergyHistory: medicalT('Medical.Mock.IntegrationBusinessData'),
+    medicalHistory: medicalT('Medical.Mock.IntegrationBusinessData'),
     patientAge: 0,
-    patientGender: '未知',
+    patientGender: medicalT('Medical.Mock.Unknown'),
     patientPhone: '',
   };
 }

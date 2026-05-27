@@ -8,6 +8,7 @@ import {
   normalizeConsultationTimestamp,
   type ConsultationMessageLike,
 } from '@/features/consultation/utils';
+import { medicalT } from '@/i18n/medicalTranslate';
 
 export function useConsultationChat(options: {
   peerUserId: Ref<string | undefined>;
@@ -45,7 +46,7 @@ export function useConsultationChat(options: {
       chatError.value =
         error instanceof Error
           ? error.message
-          : options.emptyErrorText || '会话初始化失败';
+          : options.emptyErrorText || medicalT('Medical.Chat.SessionInitFailed');
     }
   }
 
@@ -63,7 +64,10 @@ export function useConsultationChat(options: {
       await sendMessage(content);
       chatInput.value = '';
     } catch (error) {
-      chatError.value = error instanceof Error ? error.message : '消息发送失败';
+      chatError.value =
+        error instanceof Error
+          ? error.message
+          : medicalT('Medical.Chat.MessageSendFailed');
     } finally {
       isSendingMessage.value = false;
     }

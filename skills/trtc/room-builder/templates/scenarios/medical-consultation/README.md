@@ -15,17 +15,16 @@
 
 ## 快速开始
 
-请使用 pnpm 安装依赖和启动开发服务。不要使用 npm 启动该项目，npm 会明显拉长启动时间，首屏可能白屏一段时间。
+当前 demo 位于 monorepo 中，请在仓库根目录运行：
 
 ```bash
-pnpm install
-pnpm dev
+pnpm -C conference/demos/web-vite-medical-vue3 dev
 ```
 
 构建验证：
 
 ```bash
-pnpm build
+pnpm -C conference/demos/web-vite-medical-vue3 build
 ```
 
 ## 运行模式

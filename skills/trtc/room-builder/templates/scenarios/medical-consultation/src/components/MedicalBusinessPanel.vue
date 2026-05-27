@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, type Component } from 'vue';
+import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import { FileText, Pill, FolderOpen, LayoutPanelLeft } from '@/shared/icons';
 import {
   MEDICAL_BUSINESS_PANEL_MODE,
@@ -16,6 +17,7 @@ const props = defineProps<{
   appointment: MedicalAppointment;
   patient: MedicalUser;
 }>();
+const { t } = useUIKit();
 
 const activeTab = ref<BusinessTab>(
   MEDICAL_BUSINESS_PANEL_MODE === 'slot' ? 'slot' : 'record'
@@ -36,14 +38,14 @@ const tabs = computed<
     label: string;
     icon: Component;
   }> = [
-    { value: 'record', label: '病历表单示例', icon: FileText },
-    { value: 'prescription', label: '处方表单示例', icon: Pill },
-    { value: 'data', label: '检查资料示例', icon: FolderOpen },
+    { value: 'record', label: t('Medical.Business.RecordTab'), icon: FileText },
+    { value: 'prescription', label: t('Medical.Business.PrescriptionTab'), icon: Pill },
+    { value: 'data', label: t('Medical.Business.DataTab'), icon: FolderOpen },
   ];
 
   if (MEDICAL_BUSINESS_PANEL_MODE === 'slot') {
     return [
-      { value: 'slot', label: '业务插槽', icon: LayoutPanelLeft },
+      { value: 'slot', label: t('Medical.Business.SlotTab'), icon: LayoutPanelLeft },
       ...baseTabs,
     ];
   }
@@ -58,9 +60,9 @@ const tabs = computed<
   >
     <div class="flex-1 min-h-0 flex flex-col">
       <div class="px-5 py-4 border-b border-gray-100 bg-white">
-        <h3 class="text-sm font-semibold text-gray-900">业务工作区</h3>
+        <h3 class="text-sm font-semibold text-gray-900">{{ t('Medical.Business.Workspace') }}</h3>
         <p class="mt-1 text-xs text-gray-500">
-          中间区域用于承载 EMR、病历、处方、PACS 等客户自有业务系统。
+          {{ t('Medical.Business.WorkspaceDesc') }}
         </p>
       </div>
 
@@ -99,31 +101,29 @@ const tabs = computed<
                 class="inline-flex items-center gap-2 rounded-full bg-[#0D9488]/10 text-[#0D9488] px-3 py-1 text-xs font-semibold"
               >
                 <LayoutPanelLeft :size="14" />
-                业务插槽
+                {{ t('Medical.Business.SlotTab') }}
               </div>
               <h4 class="mt-4 text-2xl font-semibold text-gray-900">
                 {{ MEDICAL_BUSINESS_SLOT_TITLE }}
               </h4>
               <p class="mt-3 text-sm leading-7 text-gray-600">
-                这里建议由客户前端团队接入自有的
-                EMR、HIS、PACS、处方审核或随访表单。
-                音视频主链路、会诊协同、即时呼叫和聊天转录由 SDK 场景模板承载。
+                {{ t('Medical.Business.SlotDesc') }}
               </p>
             </div>
 
             <div class="grid grid-cols-1 gap-3 xl:grid-cols-3">
               <div class="rounded-2xl bg-white border border-gray-100 p-4">
-                <p class="text-sm font-semibold text-gray-900">左侧</p>
-                <p class="mt-2 text-xs text-gray-500">音视频画面与设备控制</p>
+                <p class="text-sm font-semibold text-gray-900">{{ t('Medical.Business.Left') }}</p>
+                <p class="mt-2 text-xs text-gray-500">{{ t('Medical.Business.LeftDesc') }}</p>
               </div>
               <div class="rounded-2xl bg-white border border-[#0D9488]/20 p-4">
-                <p class="text-sm font-semibold text-[#0D9488]">中间</p>
-                <p class="mt-2 text-xs text-gray-500">客户业务系统插槽</p>
+                <p class="text-sm font-semibold text-[#0D9488]">{{ t('Medical.Business.Center') }}</p>
+                <p class="mt-2 text-xs text-gray-500">{{ t('Medical.Business.CenterDesc') }}</p>
               </div>
               <div class="rounded-2xl bg-white border border-gray-100 p-4">
-                <p class="text-sm font-semibold text-gray-900">右侧</p>
+                <p class="text-sm font-semibold text-gray-900">{{ t('Medical.Business.Right') }}</p>
                 <p class="mt-2 text-xs text-gray-500">
-                  会诊协同、聊天、转录、成员管理
+                  {{ t('Medical.Business.RightDesc') }}
                 </p>
               </div>
             </div>

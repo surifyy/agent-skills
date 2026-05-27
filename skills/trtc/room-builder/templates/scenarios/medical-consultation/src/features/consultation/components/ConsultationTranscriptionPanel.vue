@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import { Copy, Download, Mic, MicOff } from '@/shared/icons';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import { formatConsultationClock } from '@/features/consultation/utils';
@@ -14,6 +15,7 @@ defineProps<{
   isExportingDraft: boolean;
   getSpeakerName: (userId: string) => string;
 }>();
+const { t } = useUIKit();
 
 const emit = defineEmits<{
   toggle: [];
@@ -25,7 +27,9 @@ const emit = defineEmits<{
 <template>
   <div class="h-full min-h-0 flex flex-col">
     <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-      <h3 class="font-semibold text-gray-900">实时语音转写</h3>
+      <h3 class="font-semibold text-gray-900">
+        {{ t('Medical.Manage.TranscriptionTitle') }}
+      </h3>
       <button
         @click="emit('toggle')"
         :disabled="transcriberBusy"
@@ -40,10 +44,10 @@ const emit = defineEmits<{
         <component v-else :is="transcriberRunning ? Mic : MicOff" :size="14" />
         {{
           transcriberBusy
-            ? '处理中...'
+            ? t('Medical.Common.Processing')
             : transcriberRunning
-              ? '转写中'
-              : '开启转写'
+              ? t('Medical.Manage.Transcribing')
+              : t('Medical.Manage.StartTranscription')
         }}
       </button>
     </div>
@@ -59,9 +63,9 @@ const emit = defineEmits<{
         >
           <span class="inline-flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-[#86EFAC]"></span>
-            实时转写中
+            {{ t('Medical.Manage.RealtimeTranscribing') }}
           </span>
-          <span>{{ transcriptList.length }}条对话</span>
+          <span>{{ t('Medical.Manage.TranscriptCount', { count: transcriptList.length }) }}</span>
         </div>
         <div class="p-4 space-y-3">
           <div
@@ -95,8 +99,8 @@ const emit = defineEmits<{
               <p class="text-sm">
                 {{
                   transcriberRunning
-                    ? '等待语音输入...'
-                    : '点击上方按钮开启实时转写'
+                    ? t('Medical.Manage.WaitingSpeech')
+                    : t('Medical.Manage.ClickStartTranscription')
                 }}
               </p>
             </div>
@@ -112,7 +116,7 @@ const emit = defineEmits<{
       >
         <LoadingSpinner v-if="isCopyingDraft" />
         <Copy v-else :size="16" />
-        {{ isCopyingDraft ? '复制中...' : '复制' }}
+        {{ isCopyingDraft ? t('Medical.Common.Copying') : t('Medical.Common.Copy') }}
       </button>
       <button
         @click="emit('export')"
@@ -121,11 +125,11 @@ const emit = defineEmits<{
       >
         <LoadingSpinner v-if="isExportingDraft" />
         <Download v-else :size="16" />
-        {{ isExportingDraft ? '导出中...' : '导出' }}
+        {{ isExportingDraft ? t('Medical.Common.Exporting') : t('Medical.Common.Export') }}
       </button>
     </div>
     <div class="px-4 pb-4 text-xs text-gray-500 leading-6">
-      <p>• 支持实时转写内容复制与导出</p>
+      <p>• {{ t('Medical.Manage.TranscriptionFooterTip') }}</p>
     </div>
   </div>
 </template>

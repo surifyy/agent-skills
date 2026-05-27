@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import { CheckCircle2, ChevronLeft, FileText, House } from '@/shared/icons';
 import { services } from '@/services/adapters';
+import LanguageSwitch from '@/components/LanguageSwitch.vue';
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useUIKit();
 
 const appointment = computed(() =>
   services.appointment.getAppointmentById(String(route.params.appointmentId))
@@ -48,15 +51,20 @@ const prescriptionNo = computed(() => {
     class="min-h-screen bg-gradient-to-br from-[#F5FAFE] via-[#F3FBF8] to-[#F3F6FD] flex justify-center p-4"
   >
     <div v-if="appointment && doctor" class="w-full max-w-[460px]">
-      <div class="h-14 px-2 flex items-center gap-3">
-        <button
-          @click="router.replace('/patient/select-doctor')"
-          class="inline-flex items-center gap-1 text-[#1F2937] text-sm font-medium"
-        >
-          <ChevronLeft :size="18" />
-          返回首页
-        </button>
-        <h1 class="text-2xl font-semibold text-[#111827]">问诊详情</h1>
+      <div class="h-14 px-2 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <button
+            @click="router.replace('/patient/select-doctor')"
+            class="inline-flex items-center gap-1 text-[#1F2937] text-sm font-medium shrink-0"
+          >
+            <ChevronLeft :size="18" />
+            {{ t('Medical.Common.BackHome') }}
+          </button>
+          <h1 class="text-2xl font-semibold text-[#111827] truncate">
+            {{ t('Medical.Finished.Title') }}
+          </h1>
+        </div>
+        <LanguageSwitch />
       </div>
 
       <div
@@ -68,8 +76,10 @@ const prescriptionNo = computed(() => {
           >
             <CheckCircle2 :size="46" class="text-white" />
           </div>
-          <h2 class="text-3xl font-semibold text-[#0F172A] mt-3">问诊已完成</h2>
-          <p class="text-[#6B7280] mt-2">感谢您的信任，祝您早日康复</p>
+          <h2 class="text-3xl font-semibold text-[#0F172A] mt-3">
+            {{ t('Medical.Finished.Completed') }}
+          </h2>
+          <p class="text-[#6B7280] mt-2">{{ t('Medical.Finished.Thanks') }}</p>
         </div>
 
         <div class="bg-white rounded-3xl p-4 shadow-sm border border-[#EEF2F7]">
@@ -92,7 +102,7 @@ const prescriptionNo = computed(() => {
             <div class="text-right shrink-0 ml-2">
               <p class="text-[#6B7280] text-xs">{{ displayDateTime }}</p>
               <p class="text-[#111827] text-lg font-semibold">
-                时长{{ durationMinutes }}分钟
+                {{ t('Medical.Finished.Duration', { minutes: durationMinutes }) }}
               </p>
             </div>
           </div>
@@ -103,10 +113,10 @@ const prescriptionNo = computed(() => {
         >
           <div class="flex items-center gap-2 text-[#334155] font-semibold">
             <FileText :size="18" class="text-[#0D9488]" />
-            结果示例
+            {{ t('Medical.Finished.ResultExample') }}
           </div>
           <p class="text-xl font-semibold text-[#0F172A]">
-            这里可展示客户业务系统回填的诊断结果
+            {{ t('Medical.Finished.ResultPlaceholder') }}
           </p>
         </div>
 
@@ -114,12 +124,12 @@ const prescriptionNo = computed(() => {
           <button
             class="h-12 rounded-full bg-white border border-[#E5E7EB] text-[#0D9488] font-semibold"
           >
-            处方示例
+            {{ t('Medical.Finished.PrescriptionExample') }}
           </button>
           <button
             class="h-12 rounded-full bg-white border border-[#E5E7EB] text-[#334155] font-semibold"
           >
-            病历示例
+            {{ t('Medical.Finished.RecordExample') }}
           </button>
         </div>
 
@@ -130,23 +140,31 @@ const prescriptionNo = computed(() => {
             class="bg-gradient-to-r from-[#00C2A8] to-[#0D9488] px-4 py-3 text-white"
           >
             <div class="flex items-center justify-between">
-              <h3 class="text-xl font-semibold">处方数据示例</h3>
-              <span class="text-sm px-3 py-1 rounded-full bg-white/20">可替换</span>
+              <h3 class="text-xl font-semibold">
+                {{ t('Medical.Finished.PrescriptionDataExample') }}
+              </h3>
+              <span class="text-sm px-3 py-1 rounded-full bg-white/20">
+                {{ t('Medical.Common.Replaceable') }}
+              </span>
             </div>
-            <p class="text-sm mt-2">示例编号：{{ prescriptionNo }}</p>
+            <p class="text-sm mt-2">
+              {{ t('Medical.Finished.SampleNo', { no: prescriptionNo }) }}
+            </p>
           </div>
           <div class="p-4">
             <div
               class="border border-[#E5E7EB] rounded-2xl p-4 flex items-center justify-between"
             >
               <div>
-                <p class="text-lg font-semibold text-[#111827]">阿莫西林胶囊</p>
+                <p class="text-lg font-semibold text-[#111827]">
+                  {{ t('Medical.Prescription.Amoxicillin') }}
+                </p>
                 <p class="text-[#6B7280] mt-1">0.5g</p>
               </div>
               <span
                 class="px-3 py-1 rounded-full bg-[#F8FAFC] text-[#334155] text-sm"
               >
-                21粒
+                {{ t('Medical.Prescription.Quantity21') }}
               </span>
             </div>
           </div>
@@ -159,7 +177,7 @@ const prescriptionNo = computed(() => {
           class="w-full h-12 rounded-full bg-gradient-to-r from-[#00C2A8] to-[#0D9488] text-white font-semibold inline-flex items-center justify-center gap-2 shadow-lg"
         >
           <House :size="18" />
-          返回首页
+          {{ t('Medical.Common.BackHome') }}
         </button>
       </div>
     </div>

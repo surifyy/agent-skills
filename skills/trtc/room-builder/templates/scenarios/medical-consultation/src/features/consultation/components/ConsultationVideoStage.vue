@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import { RoomParticipantView, FillMode, VideoStreamType } from 'tuikit-atomicx-vue3';
 import type { ConsultationVideoMember } from '@/features/consultation/types';
 
@@ -18,6 +19,7 @@ withDefaults(
 const emit = defineEmits<{
   focus: [userId: string];
 }>();
+const { t } = useUIKit();
 </script>
 
 <template>
@@ -53,7 +55,7 @@ const emit = defineEmits<{
       <span
         class="inline-flex items-center rounded-full bg-medical-success px-3 py-1 text-sm font-semibold text-white"
       >
-        {{ mainMember.roleLabel }}摄像头未开启
+        {{ t('Medical.Consultation.CameraOff', { role: mainMember.roleLabel }) }}
       </span>
     </div>
   </div>

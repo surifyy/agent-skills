@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import {
   Award,
   Search,
@@ -15,9 +16,11 @@ import { services } from '@/services/adapters';
 import { clearSession, getSessionUser } from '@/utils/session';
 import MedicalButton from '@/components/MedicalButton.vue';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
+import LanguageSwitch from '@/components/LanguageSwitch.vue';
 
 const router = useRouter();
 const loginState = useLoginState();
+const { t } = useUIKit();
 const patient = computed(() => getSessionUser());
 const searchQuery = ref('');
 const selectingAppointmentId = ref('');
@@ -121,21 +124,26 @@ onMounted(() => {
               </div>
               <div class="text-white min-w-0">
                 <h1 class="text-lg font-semibold leading-none truncate">
-                  示例医疗平台
+                  {{ t('Medical.Common.PlatformName') }}
                 </h1>
-                <p class="text-xs text-white/80 mt-1">选择医生开始问诊</p>
+                <p class="text-xs text-white/80 mt-1">
+                  {{ t('Medical.PatientSelect.Subtitle') }}
+                </p>
               </div>
             </div>
-            <button
-              type="button"
-              @click="logout"
-              :disabled="loggingOut"
-              class="w-9 h-9 rounded-xl bg-white/15 text-white hover:bg-white/25 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center transition-colors shrink-0"
-              aria-label="退出登录"
-            >
-              <LoadingSpinner v-if="loggingOut" />
-              <LogOut v-else class="w-4 h-4" />
-            </button>
+            <div class="flex items-center gap-2 shrink-0">
+              <LanguageSwitch />
+              <button
+                type="button"
+                @click="logout"
+                :disabled="loggingOut"
+                class="w-9 h-9 rounded-xl bg-white/15 text-white hover:bg-white/25 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center transition-colors shrink-0"
+                :aria-label="t('Medical.PatientSelect.Logout')"
+              >
+                <LoadingSpinner v-if="loggingOut" />
+                <LogOut v-else class="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           <div class="relative">
@@ -146,7 +154,7 @@ onMounted(() => {
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="搜索医生、科室或疾病"
+              :placeholder="t('Medical.PatientSelect.SearchPlaceholder')"
               class="w-full h-11 pl-11 pr-4 rounded-xl bg-white border-none shadow-sm text-[15px] text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-white/60"
             />
           </div>
@@ -186,7 +194,11 @@ onMounted(() => {
                   <span
                     class="bg-[#0D9488]/10 text-[#0D9488] px-2 py-0 h-5 rounded-full text-xs font-medium inline-flex items-center"
                   >
-                    {{ item.status === 'online' ? '在线' : '忙碌' }}
+                    {{
+                      item.status === 'online'
+                        ? t('Medical.Common.Online')
+                        : t('Medical.Common.Busy')
+                    }}
                   </span>
                 </div>
                 <p class="text-sm text-gray-600 mb-1 leading-none">
@@ -206,7 +218,9 @@ onMounted(() => {
                     {{ item.doctor?.rating }}%
                   </span>
                 </div>
-                <p class="text-xs leading-none text-gray-500">满意度</p>
+                <p class="text-xs leading-none text-gray-500">
+                  {{ t('Medical.PatientSelect.Satisfaction') }}
+                </p>
               </div>
             </div>
 
@@ -227,7 +241,7 @@ onMounted(() => {
                 <Award class="w-4 h-4 text-[#0D9488]" />
                 <div>
                   <p class="text-xs leading-none text-gray-500 mb-1">
-                    从医经验
+                    {{ t('Medical.PatientSelect.Experience') }}
                   </p>
                   <p class="text-sm leading-none font-semibold text-gray-900">
                     {{ item.doctor?.experience }}
@@ -239,7 +253,7 @@ onMounted(() => {
                 <ThumbsUp class="w-4 h-4 text-[#0D9488]" />
                 <div>
                   <p class="text-xs leading-none text-gray-500 mb-1">
-                    接诊人次
+                    {{ t('Medical.PatientSelect.Consultations') }}
                   </p>
                   <p class="text-sm leading-none font-semibold text-gray-900">
                     {{ formatConsultations(item.doctor?.consultations) }}
@@ -250,7 +264,9 @@ onMounted(() => {
 
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-xs leading-none text-gray-500 mb-1">视频问诊</p>
+                <p class="text-xs leading-none text-gray-500 mb-1">
+                  {{ t('Medical.PatientSelect.VideoConsultation') }}
+                </p>
                 <div class="flex items-end gap-1">
                   <span
                     class="text-2xl leading-none font-semibold text-[#0D9488]"
@@ -258,7 +274,7 @@ onMounted(() => {
                     ¥{{ item.doctor?.price }}
                   </span>
                   <span class="text-xs leading-none text-gray-500 mb-1">
-                    /次
+                    {{ t('Medical.PatientSelect.PerConsultation') }}
                   </span>
                 </div>
               </div>
@@ -274,8 +290,8 @@ onMounted(() => {
                 />
                 {{
                   selectingAppointmentId === item.appointment.id
-                    ? '进入中...'
-                    : '立即问诊'
+                    ? t('Medical.Common.Entering')
+                    : t('Medical.PatientSelect.StartConsultation')
                 }}
               </MedicalButton>
             </div>
@@ -290,7 +306,10 @@ onMounted(() => {
           class="flex items-center justify-center gap-2 text-xs text-gray-500"
         >
           <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
-          <span>音视频链路加密 · 医疗场景接入模板</span>
+          <span
+            >{{ t('Medical.Common.SecureLink') }} ·
+            {{ t('Medical.Common.SceneTemplate') }}</span
+          >
         </div>
       </div>
     </div>

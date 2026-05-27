@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useUIKit } from '@tencentcloud/uikit-base-component-vue3';
 import { Search, X } from '@/shared/icons';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import type { DoctorInviteListItem } from '@/features/consultation/types';
@@ -10,6 +11,7 @@ defineProps<{
   invitingDoctorId?: string | null;
   cancellingDoctorId?: string | null;
 }>();
+const { t } = useUIKit();
 
 const inviteKeyword = defineModel<string>('inviteKeyword', { default: '' });
 const emit = defineEmits<{
@@ -32,7 +34,7 @@ const emit = defineEmits<{
         class="h-[72px] px-6 flex items-center justify-between border-b border-[#EEF2F6]"
       >
         <h3 class="text-[18px] leading-none font-semibold text-[#0F172A]">
-          邀请会诊医生
+          {{ t('Medical.Manage.InviteDoctor') }}
         </h3>
         <button
           @click="emit('close')"
@@ -51,7 +53,7 @@ const emit = defineEmits<{
           <input
             v-model="inviteKeyword"
             class="w-full h-12 rounded-2xl bg-[#F8FAFC] border border-[#EEF2F6] pl-11 pr-4 text-[15px] text-[#0F172A] outline-none focus:border-[#0D9488]"
-            placeholder="搜索医生姓名或科室"
+            :placeholder="t('Medical.Manage.SearchDoctorPlaceholder')"
           />
         </div>
 
@@ -106,12 +108,12 @@ const emit = defineEmits<{
               />
               {{
                 invitingDoctorId === item.userId
-                  ? '邀请中'
+                  ? t('Medical.Common.Inviting')
                   : cancellingDoctorId === item.userId
-                    ? '取消中'
+                    ? t('Medical.Common.Canceling')
                     : item.inviteStatus === 'pending'
-                      ? '取消'
-                      : '邀请'
+                      ? t('Medical.Common.Cancel')
+                      : t('Medical.Common.Invite')
               }}
             </button>
           </div>
@@ -120,7 +122,7 @@ const emit = defineEmits<{
             v-if="doctorInviteList.length === 0"
             class="h-[140px] flex items-center justify-center text-[14px] text-[#94A3B8]"
           >
-            未找到可邀请的医生
+            {{ t('Medical.Manage.NoInviteDoctor') }}
           </div>
         </div>
         <p class="mt-3 text-xs text-[#0D9488] min-h-5">{{ inviteFeedback }}</p>
