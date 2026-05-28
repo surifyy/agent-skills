@@ -13,20 +13,20 @@
 **Claude Code / CodeBuddy**
 
 ```bash
-/plugin install trtc-ai-setup
+/plugin install trtc-agent-skills
 ```
 
 **Cursor**
 
 ```bash
-/add-plugin trtc-ai-setup
+/add-plugin Tencent-RTC/agent-skills
 ```
 
 **Codex CLI**
 
 ```bash
 /plugins
-# 搜索 "trtc-ai-setup" → Install
+# 搜索 "trtc-agent-skills" → Install
 ```
 
 ## 配置 MCP
@@ -139,4 +139,4 @@ Skill 的知识分两层：
 - [控制台（国际站）](https://console.trtc.io)
 - [控制台（中国站）](https://console.cloud.tencent.com)
 - [下载 SDK](https://trtc.io/download)
-- [提交问题](https://git.woa.com/jackyixue/trtc-ai-integration/issues)
+- [提交问题](https://github.com/Tencent-RTC/agent-skills/issues)

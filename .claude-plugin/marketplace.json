@@ -4,7 +4,7 @@
   "owner": { "name": "Tencent TRTC Team" },
   "plugins": [
     {
-      "name": "trtc-ai-setup",
+      "name": "trtc-agent-skills",
       "source": "./",
       "description": "TRTC SDK integration assistant with knowledge base"
     }

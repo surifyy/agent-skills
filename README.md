@@ -13,20 +13,20 @@ You can use it to build scenarios like video conferencing, live streaming rooms,
 **Claude Code / CodeBuddy**
 
 ```bash
-/plugin install trtc-ai-setup
+/plugin install trtc-agent-skills
 ```
 
 **Cursor**
 
 ```bash
-/add-plugin trtc-ai-setup
+/add-plugin Tencent-RTC/agent-skills
 ```
 
 **Codex CLI**
 
 ```bash
 /plugins
-# Search "trtc-ai-setup" → Install
+# Search "trtc-agent-skills" → Install
 ```
 
 ## Using with MCP
@@ -136,4 +136,4 @@ The skill's knowledge is structured into two layers:
 - [TRTC Documentation](https://trtc.io/document)
 - [TRTC Console (International)](https://console.trtc.io)
 - [TRTC Console (China)](https://console.cloud.tencent.com)
-- [Report an issue](https://git.woa.com/jackyixue/trtc-ai-integration/issues)
+- [Report an issue](https://github.com/Tencent-RTC/agent-skills/issues)
