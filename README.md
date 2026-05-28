@@ -1,230 +1,139 @@
-# TRTC AI Integration Framework
+# TRTC AI Integration
 
-帮助开发者通过 AI 快速集成和排障 [TRTC](https://trtc.io)（腾讯实时音视频）SDK。
+An agent skill provided by [TRTC](https://trtc.io) (Tencent Real-Time Communication) to help developers integrate real-time audio/video, live streaming, and instant messaging into their apps — from first setup to production-ready code.
 
-本项目将 TRTC 的产品知识拆解为**原子能力片段（Slice）**，并通过 **Claude Code Skills**、**Cursor Rules** 和 **OpenAI Codex CLI (AGENTS.md)** 提供智能搜索、代码校验、场景引导和新手入门等交互能力，让开发者在对话中完成从零到上线的集成过程。
+Instead of reading through long documentation, you describe what you want to build in plain language. The skill routes your request to the right knowledge, asks a few clarifying questions, and walks you through the integration step by step.
 
-## 快速安装
+You can use it to build scenarios like video conferencing, live streaming rooms, 1-on-1 video consultations, online classrooms, or customer support chat — across Web, iOS, Android, Flutter, and more.
 
-### Claude Code / CodeBuddy
+---
+
+## Installation
+
+**Claude Code / CodeBuddy**
 
 ```bash
-/plugin marketplace add your-org/trtc-ai-integration
 /plugin install trtc-ai-setup
 ```
 
-### Cursor
+**Cursor**
 
 ```bash
 /add-plugin trtc-ai-setup
 ```
 
-### Codex CLI
+**Codex CLI**
 
 ```bash
 /plugins
-# 搜索 "trtc-ai-setup" → Install
+# Search "trtc-ai-setup" → Install
 ```
 
-### 本地开发测试
+## Using with MCP
+
+This skill is designed to work alongside the [Tencent RTC MCP server](https://trtc.io/document/78382). The skill provides behavioral guidance on how to integrate TRTC, while MCP provides up-to-date API docs and `userSig` generation.
+
+**Claude Code**
 
 ```bash
-claude --plugin-dir /path/to/trtc-ai-integration
+claude mcp add tencent-rtc -e SDKAPPID=YOUR_SDKAPPID -e SECRETKEY=YOUR_SECRET_KEY -- npx -y @tencentcloud/sdk-mcp@1.4.3
 ```
 
-## 项目结构
+**Cursor** — add to `.cursor/mcp.json`:
 
-```
-trtc-ai-integration/
-├── .claude-plugin/plugin.json          # Claude Code / CodeBuddy Plugin 入口
-├── .cursor-plugin/plugin.json          # Cursor Plugin 入口
-├── .codex-plugin/plugin.json           # Codex Plugin 入口
-├── .codebuddy-plugin/plugin.json       # CodeBuddy Plugin 入口
-│
-├── skills/                             # Plugin Skills（用户安装后自动加载）
-│   ├── trtc/                           #   路由入口 — 识别产品/平台，分发到子 skill
-│   │   └── room-builder/              #   UI 模板与主题资产（内部 skill，用户不直接调用）
-│   ├── trtc-onboarding/               #   新手引导 — Demo / 集成 / 排障 / 扩展
-│   ├── trtc-search/                   #   智能搜索 — 7 策略匹配 + 4 级 Fallback
-│   ├── trtc-apply/                    #   代码校验 — 生成生产级代码 + 自我校验
-│   ├── trtc-docs/                     #   文档问答 — 计费/配额/错误码/API 对比
-│   └── trtc-topic/                    #   场景引导 — Checkpoint 式分步教程
-│
-├── hooks/hooks.json                    # Plugin Hooks（SessionStart/PreToolUse/PostToolUse/Stop）
-├── knowledge-base/                     # 结构化知识层（slices + scenarios + index）
-├── llms.txt + llms/                    # llms.txt 标准模板（供外部 LLM 发现文档）
-│
-├── CLAUDE.md                           # 维护者开发本仓库时的 AI 指令
-├── AGENTS.md                           # Codex / Aider / Cline 兼容入口
-├── CODEBUDDY.md                        # CodeBuddy 兼容入口
-│
-├── .claude/skills/trtc-eval/           # 维护者专属：评测工具（不随 plugin 分发）
-├── ai-instructions/                    # 维护者专属：跨工具指令源
-└── tests/                              # 维护者专属：单元测试
+```json
+{
+  "mcpServers": {
+    "tencent-rtc": {
+      "command": "npx",
+      "args": ["-y", "@tencentcloud/sdk-mcp@1.4.3"],
+      "env": {
+        "SDKAPPID": "YOUR_SDKAPPID",
+        "SECRETKEY": "YOUR_SECRET_KEY"
+      }
+    }
+  }
+}
 ```
 
-## 支持的产品
+**Codex CLI**
 
-| 产品 | 说明 |
-|------|------|
-| **Chat** | 即时通信（消息、会话、群组） |
-| **Call** | 音视频通话（1v1 / 群组） |
-| **RTC Engine** | 实时音视频引擎 |
-| **Live** | 直播（推流 / 拉流 / 连麦） |
-| **Conference** | 视频会议（多人会议、在线教育） |
-
-**支持平台**：Web / Android / iOS / Flutter / Electron / Unity
-
-## 核心理念
-
-```
-用户提问 → Skill 路由 → 知识库检索 → 结构化回答 + 代码示例
+```bash
+codex mcp add tencent-rtc --env SDKAPPID=YOUR_SDKAPPID --env SECRETKEY=YOUR_SECRET_KEY -- npx -y @tencentcloud/sdk-mcp@1.4.3
 ```
 
-传统文档是"被动阅读"，本框架是"主动交互"：
-- **按需加载**：只返回用户当前需要的知识片段，不信息过载
-- **代码生成与校验**：基于 Slice 知识生成生产级代码，并通过约束规则 + 编译验证自我校验
-- **渐进引导**：通过场景（Scenario）按步骤引导完整功能集成
-- **智能兜底**：7 层搜索策略 + 4 级 Fallback，确保用户总能得到有效回答
+**CodeBuddy** — add via Settings → Add MCP:
 
-## 核心概念
+```json
+{
+  "mcpServers": {
+    "tencent-rtc": {
+      "command": "npx",
+      "args": ["-y", "@tencentcloud/sdk-mcp@1.4.3"],
+      "env": {
+        "SDKAPPID": "YOUR_SDKAPPID",
+        "SECRETKEY": "YOUR_SECRET_KEY"
+      }
+    }
+  }
+}
+```
 
-### Slice（原子能力片段）
+---
 
-一个 Slice 对应一个原子能力（如"登录认证"、"弹幕"、"美颜"），是知识库的最小单元。
+The skill activates automatically when you mention TRTC or describe a real-time communication use case. No slash commands needed — just ask in plain language.
 
-每个 Slice 分两层：
-- **产品级概览**（`slices/live/barrage.md`）— 跨平台通用的功能说明、核心概念、最佳实践、排障指南
-- **平台实现细节**（`slices/live/ios/barrage.md`）— 具体 API 调用、代码示例、平台特有注意事项
-
-Slice 有两类来源：
-- **主线 Slice**：按 SDK 能力域系统规划，覆盖核心功能
-- **反馈 Slice**：从用户高频问题中提炼，补充真实场景的坑和边缘情况
-
-### Scenario（场景组合）
-
-一个完整的使用场景，串联多个 Slice 并定义执行顺序。例如「秀场直播间」场景包含 15 个 Slice，从登录认证到连麦互动。
-
-### ai-instructions（跨工具单一指令源）
-
-`ai-instructions/*.md` 是**工具无关**的指令源文件，由 `skills/trtc/room-builder/tools/render_ai_instructions.py` 自动渲染到各工具的入口位置：
-
-| 源文件 | 渲染目标 | 形态 |
+| | What it does | Example prompts |
 |---|---|---|
-| `ai-instructions/{name}.md` | `CLAUDE.md` 内 `<!-- AI-INSTRUCTIONS:BEGIN -->` 标记块 | 追加在人工编写内容之后；body 标题自动降级一级 |
-| `ai-instructions/{name}.md` | `AGENTS.md` | 全量重新生成；每个源文件一个 `# {name}` 段落 |
-| `ai-instructions/{name}.md` | `.cursor/rules/{name}.mdc` | 一对一渲染；自动加上 `alwaysApply: true` 前置 frontmatter |
+| **Get started** | Guides you through demo setup, SDK integration, troubleshooting, or adding a new feature — step by step | *"I want to add video conferencing to my web app"* · *"I'm getting error 6206 when users join"* · *"Conference is working — now I want to add screen sharing"* |
+| **Scenario walkthrough** | Loads a complete feature scenario and walks you through each capability in order, with code and checkpoints | *"Walk me through building a complete conference room from scratch"* · *"Guide me through a 1-on-1 video consultation end to end"* |
+| **Docs & lookup** | Answers factual questions from the official knowledge base with cited sources | *"What does error code 6206 mean?"* · *"How much does Conference cost per participant minute?"* · *"What's the max number of participants?"* |
 
-**好处**：跨 Claude Code / Cursor / Codex / Aider / CodeBuddy 等工具共享一份指令，改一次同步全工具，避免多处漂移。
+The skill saves your progress in the project. If you close the tool and come back later, it picks up where you left off.
 
-`bootstrap.sh` 跑完会自动执行渲染；CI 用 `python3 skills/trtc/room-builder/tools/render_ai_instructions.py --check` 检查源文件改动后是否忘记重新渲染。
+---
 
-### Hooks（Claude Code 强制约束）
+## Supported Products & Platforms
 
-部分契约靠 prompt 文字描述容易被模型跳过（典型例：`ui_mode=full-ui` 的资产准备 + uikit class 校验）。`.claude/settings.json` 里注册了三个 Claude Code hook，把软约束变成 harness 强制执行的硬约束：
+| Product | Description | Availability |
+|---------|-------------|--------------|
+| **Conference** | Video conferencing — multi-party meetings, screen sharing, in-meeting chat | Web ✅ |
+| **Live** | Interactive live streaming — anchor/audience roles, co-hosting, barrage, gifts, beauty filters | Coming soon |
+| **Chat** | Instant messaging — messages, conversations, groups, user profiles | Coming soon |
+| **Call** | Audio/video calling — 1-on-1 and group calls | Coming soon |
+| **RTC Engine** | Low-level real-time audio/video engine — room management, publishing, subscribing | Coming soon |
 
-| 时机 | 调用 | 作用 |
-|---|---|---|
-| `SessionStart` | `python3 skills/trtc/room-builder/guardrails/trtc_prepare_ui.py` | 会话启动时自动 cp theme + 改 `main.ts` + 改 `index.html`；幂等 |
-| `PostToolUse(Write\|Edit)` | `bash skills/trtc/room-builder/guardrails/verify_ui_post_write.sh` | 每次写 `.vue` 后立即校验 `ui-*` class 数量；不达标 stderr 反馈给模型 |
-| `Stop` | `python3 skills/trtc/room-builder/guardrails/trtc_verify_ui.py` | 模型声明完成前做项目级总闸校验 |
+> The skill also recognizes business scenarios that imply real-time communication — "telemedicine app", "online classroom", "video interview platform" — and maps them to the right TRTC product automatically.
 
-> 同样的 `trtc_verify_ui.py` 也可以被 git pre-commit hook 调，作为跨工具的最后一道防线。
+---
 
-## TRTC 产品矩阵
+## How It Works
 
-| 产品 | 说明 | 当前状态 |
-|------|------|---------|
-| **Live** | 直播（推流/拉流/连麦/弹幕/礼物/美颜） | ✅ iOS 平台 15 个 Slice 已完成 |
-| **Chat** | 即时通信（消息/会话/群组） | 📋 规划中 |
-| **Call** | 音视频通话（1v1/群组） | 📋 规划中 |
-| **RTC Engine** | 实时音视频引擎（进房/推流/拉流） | 📋 规划中 |
-| **Room** | 房间管理（创建/销毁/成员管理） | 📋 规划中 |
+When you describe what you want to build, the skill:
 
-**支持平台**：Web / Android / iOS / Flutter / Electron / Unity
+- **Identifies** your TRTC product and platform — from your message or by reading your project files
+- **Asks** what you're trying to do: run a demo, start a new integration, troubleshoot an error, or add a feature to an existing project
+- For integrations, **picks a scenario** from the knowledge base that matches your use case and shows you the full capability list — what will be implemented, in what order — before starting
+- **Walks through** one capability at a time with production-ready code, waits for you to confirm it works, then moves to the next step
+- **Saves your progress** to `.trtc-session.yaml` in your project root (auto-added to `.gitignore`) so you can resume in a later session without re-explaining what you're building
 
-## Skills 功能说明
+Step-by-step integration is currently available for **Conference on Web**. Docs lookup, error code search, and pricing questions work across all TRTC products (Conference, Live, Chat, Call, RTC Engine).
 
-### 路由（SKILL.md）
+### Knowledge base: Slices and Scenarios
 
-入口 Skill，识别用户意图中的产品和平台，分发到对应的子 Skill。
+The skill's knowledge is structured into two layers:
 
-### 新手引导（onboarding）
+**Slices** are atomic capability units — one slice per feature, such as `conference/join-room`, `conference/screen-share`, or `live/barrage`. Each slice has two levels:
+- A product-level overview (concepts, best practices, troubleshooting, cross-platform notes)
+- A platform-level implementation (exact APIs, code samples, platform-specific gotchas)
 
-为首次接触 TRTC 的开发者提供四条路径：
-- **跑通 Demo**：下载 → 配置 → 运行，最快体验产品能力
-- **集成教程**：从零将 SDK 集成到自有项目
-- **排障指南**：遇到问题时的诊断和解决流程
-- **功能扩展**：在已有集成基础上添加新能力
+**Scenarios** are curated sequences of slices for complete use cases. For example, the *Conference Room* scenario chains multiple slices — from authentication and room creation through screen sharing, member management, and cleanup — in the order a real implementation would follow.
 
-### 智能搜索（search）
+---
 
-7 层匹配策略按优先级执行：
+## Links
 
-1. 错误码精确匹配
-2. Slice ID 精确匹配
-3. 标签精确匹配
-4. 产品 + 模糊匹配
-5. 跨产品关系匹配
-6. 场景匹配
-7. 模糊 + 关键词映射（中英互转）
-
-无匹配时进入 4 级 Fallback 链，确保有效回答。
-
-### 代码生成与校验（apply）
-
-基于 Slice 和 Scenario 知识生成生产级示例代码，并通过多层验证确保代码可直接使用。有两种工作模式：
-
-- **生成模式**：读取 Slice 的 API 签名、代码示例和约束规则，生成符合最佳实践的生产级代码
-- **审查模式**：用户贴入自己的代码，基于知识库规则进行校验和修复
-
-两种模式共享同一条验证管线：
-
-1. **约束合规检查** — 逐条校验 ALWAYS/NEVER（产品级）和 MUST/MUST NOT（平台级）规则
-2. **跨 Slice 检查** — 前置状态验证、跨产品依赖、平台生命周期、清理对称性
-3. **编译验证** — 在实际项目环境中编译，以证据而非推测确认代码正确性
-4. **集成安全检查** — 确保代码不破坏已有项目（SDK 初始化冲突、依赖冲突、回归测试）
-
-核心原则：**没有编译证据，不声称代码正确；每个 issue 必须附带可直接替换的修复代码。**
-
-### 场景引导（topic）
-
-基于 Scenario 文件，通过 Checkpoint 机制分步引导用户完成完整功能集成，每一步都会确认用户是否成功再继续。
-
-## 多工具支持
-
-同一套知识库 + 同一份 `ai-instructions/` 指令源，适配多种 AI 编程工具：
-
-| 工具 | 适配文件 | 触发方式 |
-|------|---------|---------|
-| **Claude Code** | `skills/`、`CLAUDE.md`、`hooks/hooks.json` | Plugin 自动加载 skills + hooks |
-| **Cursor** | `skills/` | Plugin skills 自动注入 |
-| **OpenAI Codex CLI / Aider / Cline / CodeBuddy** | `AGENTS.md`、`CODEBUDDY.md` | 项目会话启动时自动注入 |
-| 任何工具 | `skills/trtc/room-builder/guardrails/trtc_verify_ui.py` 等命令行脚本 | 通过 Bash 直接调，作为 ground-truth 校验 |
-
-> **设计原则**：
-> - **Layer 2 知识库**是单一数据源，多种工具共享同一份 `knowledge-base/`，不重复维护。
-> - **`ai-instructions/`** 是跨工具 prompt 的单一真理源，三种入口文件由它派生。
-> - **强约束放脚本，软约束放 prompt**：脚本（命令行 + Claude Code hook）是 ground truth，prompt 只起提醒作用，不依赖模型自我克制。
-
-## 三层架构
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Layer 3: Skills（用户交互层）— Plugin 分发                        │
-│  Claude Code  →  skills/ + hooks/hooks.json                      │
-│  Cursor       →  skills/ (Plugin skills)                         │
-│  Codex CLI    →  AGENTS.md / CODEBUDDY.md                        │
-│                                                                  │
-│  ↑ CLAUDE.md / AGENTS.md 部分内容由 ai-instructions/ 单一指令源    │
-│    派生                                                           │
-├─────────────────────────────────────────────────────────────────┤
-│  Layer 2: Knowledge Base（结构化知识层）— 多种工具共享              │
-│  index.yaml → slices/ + scenarios/                               │
-├─────────────────────────────────────────────────────────────────┤
-│  Layer 1: Runtime（各工具自身运行时）                              │
-│  Claude Code Runtime / Cursor Agent / OpenAI Codex CLI / ...     │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-知识库（Layer 2）是**单一数据源**，不因工具不同而重复维护。各工具只替换 Layer 1/3 的适配层；其中跨工具共享的 prompt 部分由 `ai-instructions/` 集中维护、自动派生。
+- [TRTC Documentation](https://trtc.io/document)
+- [TRTC Console (International)](https://console.trtc.io)
+- [TRTC Console (China)](https://console.cloud.tencent.com)
+- [Report an issue](https://git.woa.com/jackyixue/trtc-ai-integration/issues)
