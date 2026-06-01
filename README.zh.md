@@ -10,28 +10,58 @@
 
 ## 安装
 
-**Claude Code / CodeBuddy**
+**Claude Code**
 
 ```bash
-/plugin install trtc-agent-skills
+# 第一步 — 添加 TRTC 插件市场
+/plugin marketplace add Tencent-RTC/agent-skills
+
+# 第二步 — 安装插件
+/plugin install trtc-agent-skills@trtc-marketplace
+
+# 第三步 — 无需重启，直接激活
+/reload-plugins
 ```
 
 **Cursor**
 
+克隆仓库并安装到 Cursor 本地插件目录：
+
 ```bash
-/add-plugin Tencent-RTC/agent-skills
+git clone https://github.com/Tencent-RTC/agent-skills.git ~/.cursor/plugins/local/trtc-agent-skills
 ```
+
+然后按 **`Cmd+Shift+P`**（Mac）/ **`Ctrl+Shift+P`**（Windows/Linux）→ 输入 `Reload Window` 回车（或直接重启 Cursor）。
 
 **Codex CLI**
 
 ```bash
+# 第一步 — 添加 TRTC 插件市场
+codex plugin marketplace add Tencent-RTC/agent-skills
+
+# 第二步 — 在 Codex CLI 中打开插件浏览器：
 /plugins
-# 搜索 "trtc-agent-skills" → Install
+# 选择 "TRTC Agent Skills" 标签页 → 选择 trtc-agent-skills → 按 Enter 安装
+```
+
+**CodeBuddy CLI**
+
+```bash
+# 第一步 — 添加 TRTC 插件市场
+/plugin marketplace add Tencent-RTC/agent-skills
+
+# 第二步 — 安装插件
+/plugin install trtc-agent-skills@trtc-marketplace
+
+# 第三步 — 无需重启，直接激活
+/reload-plugins
 ```
 
 ## 配置 MCP
 
 本 Skill 需要配合 [Tencent RTC MCP Server](https://trtc.io/document/78382) 使用。Skill 负责集成引导，MCP 负责提供最新 API 文档和生成测试用 `userSig`。
+
+> YOUR_SDKAPPID 和 YOUR_SECRET_KEY 可在[控制台（国际站）](https://console.trtc.io)/[控制台（中国站）](https://console.cloud.tencent.com)的应用详情页获取。
 
 **Claude Code**
 

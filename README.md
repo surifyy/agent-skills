@@ -10,28 +10,58 @@ You can use it to build scenarios like video conferencing, live streaming rooms,
 
 ## Installation
 
-**Claude Code / CodeBuddy**
+**Claude Code**
 
 ```bash
-/plugin install trtc-agent-skills
+# Step 1 — add the TRTC plugin marketplace
+/plugin marketplace add Tencent-RTC/agent-skills
+
+# Step 2 — install the plugin
+/plugin install trtc-agent-skills@trtc-marketplace
+
+# Step 3 — activate without restarting
+/reload-plugins
 ```
 
 **Cursor**
 
+Clone the repo and symlink it into Cursor's local plugin directory:
+
 ```bash
-/add-plugin Tencent-RTC/agent-skills
+git clone https://github.com/Tencent-RTC/agent-skills.git ~/.cursor/plugins/local/trtc-agent-skills
 ```
+
+Then press **`Cmd+Shift+P`** (Mac) / **`Ctrl+Shift+P`** (Windows/Linux) → `Reload Window` (or restart Cursor).
 
 **Codex CLI**
 
 ```bash
+# Step 1 — add the TRTC plugin marketplace
+codex plugin marketplace add Tencent-RTC/agent-skills
+
+# Step 2 — open the plugin browser inside Codex CLI:
 /plugins
-# Search "trtc-agent-skills" → Install
+# Select the "TRTC Agent Skills" tab → select trtc-agent-skills → press Enter to install
+```
+
+**CodeBuddy CLI**
+
+```bash
+# Step 1 — add the TRTC plugin marketplace
+/plugin marketplace add Tencent-RTC/agent-skills
+
+# Step 2 — install the plugin
+/plugin install trtc-agent-skills@trtc-marketplace
+
+# Step 3 — activate without restarting
+/reload-plugins
 ```
 
 ## Using with MCP
 
 This skill is designed to work alongside the [Tencent RTC MCP server](https://trtc.io/document/78382). The skill provides behavioral guidance on how to integrate TRTC, while MCP provides up-to-date API docs and `userSig` generation.
+
+> You can find `YOUR_SDKAPPID` and `YOUR_SECRET_KEY` on the application details page in the [console (International)](https://console.trtc.io) or [console (China)](https://console.cloud.tencent.com).
 
 **Claude Code**
 
