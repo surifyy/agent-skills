@@ -29,53 +29,6 @@ npx -y @tencent-rtc/trtc-agent-skills add --ide cursor
 npx -y @tencent-rtc/trtc-agent-skills add --clean
 ```
 
-
-**Claude Code**
-
-```bash
-claude mcp add tencent-rtc -e SDKAPPID=YOUR_SDKAPPID -e SECRETKEY=YOUR_SECRET_KEY -- npx -y @tencentcloud/sdk-mcp@1.4.3
-```
-
-**Cursor** — 添加到 `.cursor/mcp.json`：
-
-```json
-{
-  "mcpServers": {
-    "tencent-rtc": {
-      "command": "npx",
-      "args": ["-y", "@tencentcloud/sdk-mcp@1.4.3"],
-      "env": {
-        "SDKAPPID": "YOUR_SDKAPPID",
-        "SECRETKEY": "YOUR_SECRET_KEY"
-      }
-    }
-  }
-}
-```
-
-**Codex CLI**
-
-```bash
-codex mcp add tencent-rtc --env SDKAPPID=YOUR_SDKAPPID --env SECRETKEY=YOUR_SECRET_KEY -- npx -y @tencentcloud/sdk-mcp@1.4.3
-```
-
-**CodeBuddy** — 通过 设置 → 添加 MCP 配置：
-
-```json
-{
-  "mcpServers": {
-    "tencent-rtc": {
-      "command": "npx",
-      "args": ["-y", "@tencentcloud/sdk-mcp@1.4.3"],
-      "env": {
-        "SDKAPPID": "YOUR_SDKAPPID",
-        "SECRETKEY": "YOUR_SECRET_KEY"
-      }
-    }
-  }
-}
-```
-
 ---
 
 ## 能做什么
