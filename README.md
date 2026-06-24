@@ -17,16 +17,16 @@ If your IDE doesn't have a plugin marketplace, or you'd rather pin the install t
 ```bash
 # Default — auto-detect installed IDEs (~/.{claude,cursor,codebuddy,codex}/)
 # and install for each one found. Falls back to claude if none detected.
-npx -y @tencent-rtc/trtc-agent-skills add
+npx -y @tencent-rtc/trtc-agent-skills@latest add
 
 # Force install for every supported IDE (even ones you don't have)
-npx -y @tencent-rtc/trtc-agent-skills add --ide all
+npx -y @tencent-rtc/trtc-agent-skills add@latest --ide all
 
 # Install only for one specific IDE
-npx -y @tencent-rtc/trtc-agent-skills add --ide cursor
+npx -y @tencent-rtc/trtc-agent-skills add@latest --ide cursor
 
 # Wipe a previous install before re-installing
-npx -y @tencent-rtc/trtc-agent-skills add --clean
+npx -y @tencent-rtc/trtc-agent-skills add@latest --clean
 ```
 
 ---

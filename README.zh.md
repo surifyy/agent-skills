@@ -17,16 +17,16 @@
 ```bash
 # 默认 — 自动检测已安装的 IDE（~/.{claude,cursor,codebuddy,codex}/）
 # 为每一个检测到的 IDE 都安装好；都没检测到时回退到 claude
-npx -y @tencent-rtc/trtc-agent-skills add
+npx -y @tencent-rtc/trtc-agent-skills@latest add
 
 # 强制为所有支持的 IDE 都装一份（即使你本机没装那个 IDE）
-npx -y @tencent-rtc/trtc-agent-skills add --ide all
+npx -y @tencent-rtc/trtc-agent-skills@latest add --ide all
 
 # 只为某个指定的 IDE 安装
-npx -y @tencent-rtc/trtc-agent-skills add --ide cursor
+npx -y @tencent-rtc/trtc-agent-skills@latest add --ide cursor
 
 # 重装前先清理旧的安装
-npx -y @tencent-rtc/trtc-agent-skills add --clean
+npx -y @tencent-rtc/trtc-agent-skills@latest add --clean
 ```
 
 ---
