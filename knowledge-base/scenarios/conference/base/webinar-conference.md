@@ -4,6 +4,20 @@ name: 研讨会 / 宣讲会
 product: conference
 room_type: webinar
 industry: generic
+
+trigger:
+  intent_keywords:
+    - 研讨会
+    - 宣讲会
+    - 在线讲座
+    - 主讲人
+    - 嘉宾上台
+    - 大型会议
+    - 单向广播
+    - webinar
+    - lecture
+    - town hall
+
 slices:
   - conference/login-auth
   - conference/prejoin-check

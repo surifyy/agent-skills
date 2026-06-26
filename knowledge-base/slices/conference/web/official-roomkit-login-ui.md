@@ -57,39 +57,67 @@ platform: web
 | 1 | 标题 `<h1>加入会议</h1>` | 32px |
 | 2 | 输入框：用户 ID | 16px |
 | 3 | 输入框：会议 ID（placeholder: "输入会议 ID（创建时可留空）"） | 16px |
-| 4 | 输入框：SDKAppID | 16px |
-| 5 | 输入框：UserSig | 16px |
-| 6 | 凭证说明区（见下方规范） | 24px |
-| 7 | 主按钮「创建并加入」 | 24px |
-| 8 | 分割提示行：1px 横线 + 居中「或」 | 16px |
-| 9 | 次级按钮「加入已有会议」（outline 样式） | — |
+
+**按 `usersig_source` 分支追加字段（二选一，勿混用）：**
+
+| `usersig_source` | 追加字段（顺序接在会议 ID 之后） |
+|---|---|
+| `local-dev` | 仅凭证说明区（见 §3.1 local-dev）— **无** SDKAppID / UserSig 输入框 |
+| `console` | 输入框 SDKAppID → 输入框 UserSig → 凭证说明区（见 §3.1 console） |
+
+| # | 元素 | 与下一项的间距 |
+|---|---|---|
+| … | 主按钮「创建并加入」 | 24px |
+| … | 分割提示行 + 「或」 | 16px |
+| … | 次级按钮「加入已有会议」 | — |
+
+> **`local-dev`**：凭证在 `src/config/basic-info-config.ts`，登录调用 `getBasicInfo(userId)`。
+> **`console`**：保留 SDKAppID + UserSig 平铺输入框，UserSig 从控制台粘贴（见 `usersig-handling.md` Path B）。
 
 ### 3.1 凭证说明区规范
 
-在 SDKAppID 和 UserSig 输入框下方，以信息提示卡片形式展示（非折叠、非 tooltip）：
+在凭证相关输入框下方（或 `local-dev` 时在会议 ID 下方），以信息提示卡片展示：
 
 - 容器：背景 `#F0F6FF`，圆角 8px，内边距 12px 16px
 - 图标：左侧 ℹ️ 信息图标，颜色 `#0D6BDE`
 - 文字：12px，颜色 `#444`，行高 1.6
 
-内容（固定文案，不可省略）：
+**`local-dev` 文案：**
+
+```
+本地调试：在 src/config/basic-info-config.ts 填入 SDKAppID 和 SecretKey
+（控制台 → 应用管理 → 应用信息）：
+• 国际站：https://console.trtc.io
+• 国内站：https://console.cloud.tencent.com
+
+登录时只需输入 UserID —— userSig 会按 UserID 自动生成，两者必须匹配。
+⚠️ SecretKey 仅用于本地调试；生产环境请由服务端签发 UserSig。
+```
+
+**`console` 文案（固定，不可省略）：**
 
 ```
 SDKAppID 和 UserSig 可从控制台获取：
 • 国际站：https://console.trtc.io
 • 国内站：https://console.cloud.tencent.com
 
-⚠️ 测试 UserSig 约 24 小时后失效，生产环境请由服务端签发。
-「服务端签发」链接指向：https://trtc.io/document/34385
+在「UserSig 生成&校验」中输入与登录页相同的 UserID 再生成 UserSig —— 两者必须匹配。
+⚠️ 测试 UserSig 约 24h 后失效；生产环境请由服务端签发。
+「服务端签发」：https://trtc.io/document/34385
 ```
 
 链接使用主色 `#0D6BDE`，hover 加下划线，`target="_blank"`。
 
 ### 3.2 输入框要求
 
-- 四个输入框（用户 ID、会议 ID、SDKAppID、UserSig）均为**平铺展示**，不使用折叠/展开/高级设置等隐藏形式。
-- 若通过 MCP 获取到 SDKAppID 和 UserSig，可预填值但仍保持输入框可见可编辑。
-- UserSig 输入框使用 `type="password"` 遮罩显示。
+**`local-dev`：**
+- 仅用户 ID、会议 ID；SDKAppID / SecretKey 在 `basic-info-config.ts`。
+- 禁止 UserSig 手填框。
+
+**`console`：**
+- 用户 ID、会议 ID、SDKAppID、UserSig 四个输入框均平铺展示。
+- UserSig 使用 `type="password"`。
+- 凭证说明必须强调 **控制台生成 UserSig 时 UserID 与登录页一致**。
 
 约束要点：
 - 卡片内每个表单元素**宽度 100%**（撑满卡片内边距宽度）。

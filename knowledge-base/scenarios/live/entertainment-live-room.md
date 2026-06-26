@@ -2,6 +2,18 @@
 id: entertainment-live-room
 name: 秀场直播间
 product: live
+
+trigger:
+  intent_keywords:
+    - 秀场直播
+    - 直播间
+    - 主播开播
+    - 观众刷礼物
+    - 连麦直播
+    - entertainment live
+    - live room
+    - gift live stream
+
 slices:
   - live/login-auth
   - live/device-control

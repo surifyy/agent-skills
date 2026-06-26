@@ -5,9 +5,9 @@
 /**
  * @tencent-rtc/trtc-agent-skills installer
  *
- * Installs the TRTC AI Integration skill suite (6 cross-referencing skills:
- * trtc + trtc-onboarding/docs/topic/search/apply) plus the shared
- * knowledge-base into your IDE's skills directory, and wires up the
+ * Installs the TRTC AI Integration skill suite (cross-referencing skills:
+ * trtc + trtc-onboarding/docs/topic/search/apply + trtc-ai-service) plus the
+ * shared knowledge-base into your IDE's skills directory, and wires up the
  * `tencent-rtc-skill-tool` MCP server (used for prompt / runtime telemetry).
  *
  * IMPORTANT — why skills are copied as SIBLING DIRECTORIES:
@@ -50,15 +50,32 @@ const SKILLS_SRC  = path.join(PKG_ROOT, "skills");
 const KB_SRC      = path.join(PKG_ROOT, "knowledge-base");
 const HOOKS_SRC   = path.join(PKG_ROOT, "hooks");
 
-// The 6 skills that make up the suite. Order is cosmetic; `trtc` is the entry.
-const SKILL_NAMES = [
+// Dynamically discover all skills under SKILLS_SRC. Each skill must be a
+// directory containing a SKILL.md entry point. `trtc` is always listed first;
+// the rest are sorted alphabetically. This avoids the stale-hardcoded-list
+// problem — adding a new skill directory is enough to get it installed.
+//
+// Security: only skills in SKILL_ALLOWLIST are installed. This prevents
+// draft / fork / debug directories from being silently picked up.
+const SKILL_ALLOWLIST = new Set([
   "trtc",
-  "trtc-onboarding",
   "trtc-docs",
-  "trtc-topic",
-  "trtc-search",
-  "trtc-apply",
-];
+  "trtc-conference",
+  "trtc-ai-service",
+]);
+
+function getSkillNames() {
+  return fs.readdirSync(SKILLS_SRC, { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name)
+    .filter(name => SKILL_ALLOWLIST.has(name))
+    .filter(name => fs.existsSync(path.join(SKILLS_SRC, name, "SKILL.md")))
+    .sort((a, b) => {
+      if (a === "trtc") return -1;
+      if (b === "trtc") return 1;
+      return a.localeCompare(b);
+    });
+}
 
 // IDE skill-install targets (project-level). Each IDE reads skills from a
 // different directory, but the layout inside is identical: one dir per skill.
@@ -95,16 +112,12 @@ const MCP_SERVER_ENTRY = "@tencent-rtc/skill-tool@latest";
 //     placeholders that get expanded by the IDE in plugin mode; in npx mode we
 //     materialize them to absolute paths under the IDE's settings dir.
 //   cursor: hooks-cursor.json is rewritten + merged into <root>/.cursor/hooks.json
-//     (project-level — Cursor supports both project and user-level hooks.json).
-//     cursor-adapter.py is copied to <root>/.cursor/hooks/ and its hardcoded
+//     (project-level). cursor-adapter.py is copied to
+//     <root>/.cursor/hooks/trtc-agent-skills/ and its hardcoded
 //     $HOME/.cursor/plugins/local/... reference is rewritten to the actual path.
 const HOOKS_TARGETS = {
   claude: {
-    // claude/codebuddy/codex hooks.json points hook commands directly at
-    // ${PLUGIN_ROOT}/skills/.../guardrails/xxx.py — there is nothing to copy
-    // into a hooks/ dir for these IDEs, so we leave hooksDir undefined and
-    // skip the copy step entirely. This keeps .{ide}/hooks/ free for other
-    // skill packages to use without us clobbering it.
+    hooksDir:        ".claude/hooks",
     settingsFile:    ".claude/settings.json",
     sourceConfig:    "hooks.json",
     rootPlaceholder: "${CLAUDE_PLUGIN_ROOT}",
@@ -112,6 +125,7 @@ const HOOKS_TARGETS = {
     fallbackPlaceholder: "${CODEBUDDY_PLUGIN_ROOT}",
   },
   codebuddy: {
+    hooksDir:        ".codebuddy/hooks",
     settingsFile:    ".codebuddy/settings.json",
     sourceConfig:    "hooks.json",
     rootPlaceholder: "${CODEBUDDY_PLUGIN_ROOT}",
@@ -119,6 +133,7 @@ const HOOKS_TARGETS = {
     fallbackPlaceholder: "${CLAUDE_PLUGIN_ROOT}",
   },
   codex: {
+    hooksDir:        ".codex/hooks",
     // Codex loads hooks from <repo>/.codex/hooks.json (or ~/.codex/hooks.json)
     // — NOT from .agents/settings.json. See https://developers.openai.com/codex/hooks
     //
@@ -126,7 +141,7 @@ const HOOKS_TARGETS = {
     // unknown top-level fields ("unknown field `__trtc_agent_skills__`, expected
     // `hooks`"). We therefore mark codex as `strictSchema: true` so the merge
     // logic skips the marker injection (uninstall identifies our entries by
-    // hook command path substrings instead — see CODEX_OWNED_COMMAND_HINT).
+    // hook command path substrings instead — see OWNED_COMMAND_HINTS).
     settingsFile:    ".codex/hooks.json",
     sourceConfig:    "hooks.json",
     rootPlaceholder: "${CLAUDE_PLUGIN_ROOT}",
@@ -152,12 +167,14 @@ const HOOKS_TARGETS = {
 // embed our `__trtc_agent_skills__` ownership markers. Instead, uninstall
 // detects "our" hook entries by checking whether any command string contains
 // one of these path-segment hints — every guardrail script we ship lives under
-// `skills/<skill>/guardrails/`, and the cursor adapter under our namespaced
-// hooks subdir. A user-written hook command is extremely unlikely to match.
+// `skills/<skill>/hooks/` or `skills/<skill>/guardrails/`, and the cursor
+// adapter under our namespaced hooks subdir.
 const OWNED_COMMAND_HINTS = [
+  "/skills/trtc/hooks/",
   "/skills/trtc/room-builder/guardrails/",
   "/skills/trtc-topic/guardrails/",
   "/skills/trtc-apply/guardrails/",
+  "/skills/trtc-conference/hooks/",
   "/hooks/trtc-agent-skills/cursor-adapter.py",
 ];
 
@@ -332,13 +349,20 @@ function printHelp() {
 }
 
 function listSkills() {
+  const descriptions = {
+    "trtc":             "Entry router — detects product/platform, routes to sub-skills",
+    "trtc-ai-service":  "AI customer service scenarios (TRTC Conversational AI)",
+    "trtc-onboarding":  "Get-started / integration / troubleshooting flow",
+    "trtc-docs":        "Docs & error-code lookup",
+    "trtc-topic":       "Step-by-step scenario walkthrough",
+    "trtc-search":      "Internal slice lookup (AI-facing)",
+    "trtc-apply":       "Internal compile/integration quality gate",
+  };
   console.log(`\n  ${c.bold("Skills shipped in this package:")}\n`);
-  console.log(`  ${c.cyan("trtc/")}            ${c.dim("Entry router — detects product/platform, routes to sub-skills")}`);
-  console.log(`  ${c.cyan("trtc-onboarding/")} ${c.dim("Get-started / integration / troubleshooting flow")}`);
-  console.log(`  ${c.cyan("trtc-docs/")}       ${c.dim("Docs & error-code lookup")}`);
-  console.log(`  ${c.cyan("trtc-topic/")}      ${c.dim("Step-by-step scenario walkthrough")}`);
-  console.log(`  ${c.cyan("trtc-search/")}     ${c.dim("Internal slice lookup (AI-facing)")}`);
-  console.log(`  ${c.cyan("trtc-apply/")}      ${c.dim("Internal compile/integration quality gate")}`);
+  for (const name of getSkillNames()) {
+    const desc = descriptions[name] || "";
+    console.log(`  ${c.cyan(name + "/")}` + (desc ? ` ${c.dim(desc)}` : ""));
+  }
   console.log("");
 }
 
@@ -346,31 +370,16 @@ function listSkills() {
 function cleanSkills(skillsRootAbs) {
   if (!fs.existsSync(skillsRootAbs)) return 0;
   let wiped = 0;
-  for (const name of SKILL_NAMES) {
+  for (const name of getSkillNames()) {
     const target = path.join(skillsRootAbs, name);
     if (fs.existsSync(target)) { rmrf(target); wiped++; }
   }
   // also wipe a co-located knowledge-base copy if present
   const kb = path.join(path.dirname(skillsRootAbs), "knowledge-base");
   if (fs.existsSync(kb)) { rmrf(kb); }
-  // Hooks cleanup: only remove our own files, never rmrf the whole hooks/
-  // dir — another skill package may be sharing it.
+  // also wipe a co-located hooks/ copy if present (npx-mode hook scripts)
   const hooks = path.join(path.dirname(skillsRootAbs), "hooks");
-  if (fs.existsSync(hooks)) {
-    // 1) preferred current layout: hooks/trtc-agent-skills/
-    rmrf(path.join(hooks, "trtc-agent-skills"));
-    // 2) legacy layout: hooks/<file> at the top level. Only remove files we
-    //    know we shipped; leave anything else (other skills, user scripts).
-    const LEGACY_FILES = ["cursor-adapter.py", "hooks.json", "hooks-cursor.json"];
-    for (const f of LEGACY_FILES) {
-      const p = path.join(hooks, f);
-      if (fs.existsSync(p) && fs.statSync(p).isFile()) rmrf(p);
-    }
-    // If hooks/ is now empty, remove it; otherwise leave it for other owners.
-    try {
-      if (fs.readdirSync(hooks).length === 0) rmrf(hooks);
-    } catch { /* ignore */ }
-  }
+  if (fs.existsSync(hooks)) { rmrf(hooks); }
   return wiped;
 }
 
@@ -440,9 +449,8 @@ function cleanHooksSettings(ideList, resolvedRoot) {
       if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
     }
 
-    // For strict-schema codex, if we cleared everything, the file we created
-    // serves no purpose and (with `version` etc. potentially also gone) should
-    // be removed so codex doesn't see a stale empty file.
+    // For strict-schema codex, if we cleared everything, remove the file so
+    // codex doesn't see a stale empty file.
     const onlyHadOurState = !settings.hooks && Object.keys(settings).length === 0;
     if (onlyHadOurState) {
       rmrf(settingsPath);
@@ -455,7 +463,7 @@ function cleanHooksSettings(ideList, resolvedRoot) {
 
 function installSkills(skillsRootAbs) {
   ensureDir(skillsRootAbs);
-  for (const name of SKILL_NAMES) {
+  for (const name of getSkillNames()) {
     const src = path.join(SKILLS_SRC, name);
     if (fs.existsSync(src)) {
       copyRecursive(src, path.join(skillsRootAbs, name));
@@ -503,37 +511,29 @@ function rewriteHooksContent(content, target, ideAbsRoot) {
     // We need the resulting JSON string to evaluate to a shell-quoted path so
     // project paths with spaces don't break shell parsing — that means
     // emitting `\"<abs>\"` (JSON-escaped quotes) into the string.
-    const cursorAdapterAbs = path.join(ideAbsRoot, "hooks", "trtc-agent-skills", "cursor-adapter.py");
+    const cursorAdapterAbs = path.join(ideAbsRoot, "hooks", "cursor-adapter.py");
     const replacement = `\\"${cursorAdapterAbs}\\"`;
     out = out.split(target.cursorAdapterPlaceholder).join(replacement);
   }
   return out;
 }
 
-// Copy only the hook files this IDE actually needs into a namespaced subdir
-// (.cursor/hooks/trtc-agent-skills/), so we never wipe a sibling skill's
-// hooks/ contents. IDEs whose hook commands point straight at skills/ (claude,
-// codebuddy, codex) declare no hooksDir and skip this step entirely.
+// Copy the hooks/ source directory into <root>/.{ide}/hooks/ so the dispatched
+// scripts (cursor-adapter.py + the underlying guardrail scripts referenced by
+// hooks.json) sit next to the IDE's skills/.
 function copyHooksDir(target, resolvedRoot) {
-  if (!target.hooksDir) return null;
   const dest = path.join(resolvedRoot, target.hooksDir);
   rmrf(dest);
-  ensureDir(dest);
-  const files = target.hooksFiles && target.hooksFiles.length
-    ? target.hooksFiles
-    : fs.readdirSync(HOOKS_SRC).filter(f => !f.endsWith(".json"));
-  for (const f of files) {
-    const src = path.join(HOOKS_SRC, f);
-    if (fs.existsSync(src)) copyRecursive(src, path.join(dest, f));
-  }
+  copyRecursive(HOOKS_SRC, dest);
   return dest;
 }
 
 // Merge the rewritten hook config into the IDE's settings file. The settings
 // file may already contain unrelated user state (permissions, MCP servers,
-// other hooks); we only own the `hooks` key. We merge per-event arrays so
-// a previously-installed project's adapter path gets replaced but the user's
-// own hook entries (if any) are preserved.
+// other hooks); we only own the `hooks` key. For Cursor's user-level
+// ~/.cursor/hooks.json we merge per-event arrays so a previously-installed
+// project's adapter path gets replaced by ours but the user's own hook
+// entries (if any) are preserved.
 function mergeHooksConfig(target, resolvedRoot, ideAbsRoot) {
   const srcPath = path.join(HOOKS_SRC, target.sourceConfig);
   if (!fs.existsSync(srcPath)) return null;
@@ -613,7 +613,7 @@ function mergeHooksConfig(target, resolvedRoot, ideAbsRoot) {
   }
 
   // Preserve / propagate top-level keys that the IDE expects (e.g. cursor
-  // requires `"version": 1` at the root of .cursor/hooks.json or it rejects
+  // requires `"version": 1` at the root of ~/.cursor/hooks.json or it rejects
   // the file with "Config version must be a number"). Only copy keys we don't
   // already own (hooks, __trtc_agent_skills__) to avoid clobbering the user's
   // unrelated state.
@@ -631,27 +631,16 @@ function installHooks(ideList, resolvedRoot) {
     const target = HOOKS_TARGETS[ide];
     if (!target) continue;
 
-    // ideAbsRoot is "<resolvedRoot>/.{ide}" — the directory that holds skills/,
-    // hooks/ (when used), settings.json. Derive it from settingsFile so it
-    // doesn't depend on the optional hooksDir.
-    const settingsRel = target.settingsFile;
-    const ideRelRoot = path.isAbsolute(settingsRel)
-      ? path.dirname(settingsRel)
-      : settingsRel.split(path.sep)[0];
-    const ideAbsRoot = path.isAbsolute(settingsRel)
-      ? path.dirname(settingsRel)
-      : path.join(resolvedRoot, ideRelRoot);
-
+    const ideAbsRoot = path.join(resolvedRoot, path.dirname(target.hooksDir));
     const hooksDest = copyHooksDir(target, resolvedRoot);
-    if (hooksDest) {
-      console.log(c.green("    ✓ ") + `${ide} hooks → ${hooksDest}/`);
-    } else {
-      console.log(c.dim(`    ✓ ${ide} hooks: no files needed (commands point at skills/)`));
-    }
+    console.log(c.green("    ✓ ") + `${ide} hooks → ${hooksDest}/`);
 
     const merged = mergeHooksConfig(target, resolvedRoot, ideAbsRoot);
     if (merged) {
-      console.log(c.green("    ✓ ") + `${ide} hooks settings → ${merged.settingsPath} ${c.dim(`(${merged.eventCount} events)`)}`);
+      const isUserLevel = path.isAbsolute(target.settingsFile);
+      const prefix = isUserLevel ? c.yellow("    ⚠ ") : c.green("    ✓ ");
+      const note   = isUserLevel ? c.dim(" (user-level — affects all cursor projects)") : "";
+      console.log(`${prefix}${ide} hooks settings → ${merged.settingsPath} ${c.dim(`(${merged.eventCount} events)`)}${note}`);
     }
   }
 }
@@ -915,7 +904,7 @@ function main() {
     }
 
     installSkills(skillsRootAbs);
-    for (const name of SKILL_NAMES) console.log(c.green("    ✓ ") + name + "/");
+    for (const name of getSkillNames()) console.log(c.green("    ✓ ") + name + "/");
 
     const kbDest = copyKnowledgeBase(skillsRootAbs);
     console.log(c.green("    ✓ ") + "knowledge-base/ " + c.dim("→ " + kbDest));

@@ -82,12 +82,12 @@ camera-testing / microphone-testing / speaker-testing
 
 1. **把入会前完整检查流程与真实入会控制拆成两段主链路** —— 用户先完成会前自检，再进入房间主链路；会中如需局部检查，应由会中设备能力单独承接。
 2. **把用户选定的设备延续到会中** —— 会前选好的摄像头、麦克风和扬声器应直接复用于会中控制。
-3. **在页面卸载或进入会议前停止测试** —— 避免会前测试与会中真实采集相互冲突。
+3. **在页面卸载、路由离开或进入会议前停止全部测试** —— 必须调用 `stopCameraTest()` 与 `stopSpeakerTest()`（若 SDK 暴露），避免会前测试与会中真实采集冲突，以及扬声器测试音贯穿整场会议。
 4. **把权限拒绝和设备缺失写成可执行提示** —— 告诉用户下一步该切浏览器权限、换设备，还是直接降级进入。
 
 ### ❌ NEVER
 
-1. **不要把会前测试残留到会中流程里** —— 测试流和真实采集流应在入会时完成切换。
+1. **不要把会前测试残留到会中流程里** —— 测试流和真实采集流应在入会时完成切换；`startSpeakerTest` 后未 `stopSpeakerTest` 会导致测试音循环播放至会议结束。
 2. **不要只测试摄像头而忽略麦克风和扬声器** —— 用户真实会议体验依赖完整的音视频链路。
 3. **不要在测试失败时静默继续入会** —— 如果关键设备不可用，应给出明确风险提示或修复建议。
 
@@ -103,6 +103,7 @@ const {
   stopCameraTest,
   startMicrophoneTest,
   startSpeakerTest,
+  stopSpeakerTest,
   currentMicVolume,
 } = useDeviceState();
 
@@ -130,7 +131,8 @@ async function toggleCameraPreview(view: HTMLElement) {
   }
 }
 
-// 入会前停止测试释放设备资源
+// 入会前停止测试释放设备资源（扬声器测试音必须停止，否则会贯穿整场会议）
+await stopSpeakerTest?.();
 await stopCameraTest();
 ```
 
@@ -163,6 +165,7 @@ onMounted(async () => {
 });
 
 onUnmounted(async () => {
+  await stopSpeakerTest?.();
   await stopCameraTest();
 });
 
@@ -239,8 +242,8 @@ export function useConferenceDevice() {
 
 1. **在预览容器准备好后再调用 `startCameraTest()`** — 否则本地预览无法正常渲染。  
    **Verify**: 检查是否为 `view` 传入真实 DOM 节点。
-2. **在页面离开或流程结束时停止测试** — 否则设备资源会残留占用。  
-   **Verify**: 检查是否存在 `stopCameraTest()` 或等价清理逻辑。
+2. **在页面离开或流程结束时停止全部测试** — 必须配对 `stopCameraTest()` 与 `stopSpeakerTest()`（入会按钮点击、路由离开、`onUnmounted` 三处至少覆盖入会路径）。  
+   **Verify**: 搜索 `stopCameraTest` 与 `stopSpeakerTest`（或 SDK 等价 API）。
 
 #### MUST NOT（生成时绝不能出现）
 

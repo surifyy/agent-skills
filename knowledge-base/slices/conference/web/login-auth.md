@@ -13,13 +13,21 @@ business_decisions:
   - key: usersig_source
     tier: blocking
     question: "您的项目当前处于哪个阶段？这决定鉴权凭证（UserSig）的生成方式。"
+    tier: blocking
+    question: "您的项目当前处于哪个阶段？这决定鉴权凭证（UserSig）的生成方式。"
     options:
-      - { label: "本地开发 / 调试 —— 控制台临时签发，几分钟即可跑通；有有效期、不能用于生产", value: "console" }
-      - { label: "生产环境（上线）—— 由您的后端接口签发，安全合规（推荐）", value: "backend" }
+      - { label: "本地开发 —— config 配置 SDKAppID+SecretKey，登录时按 UserID 自动签名（推荐，最快）", value: "local-dev" }
+      - { label: "本地开发 / 调试 —— 到控制台生成 UserSig，复制粘贴到登录页（不配置 SecretKey）", value: "console" }
+      - { label: "对接生产 —— 由后端接口签发，安全合规（推荐）", value: "backend" }
   - key: userid_strategy
     tier: blocking
     question: "参会用户的身份需要绑定您现有的账号体系吗？"
+    tier: blocking
+    question: "参会用户的身份需要绑定您现有的账号体系吗？"
     options:
+      - { label: "需要，直接使用现有账号的用户 ID —— 最常见，如员工工号、手机号等", value: "direct" }
+      - { label: "需要，但不能暴露真实 ID —— 转换为会议专用身份，后台维护映射关系", value: "uuid-mapping" }
+      - { label: "不需要，允许无账号匿名入会 —— 生成临时 ID，用完即弃", value: "anonymous" }
       - { label: "需要，直接使用现有账号的用户 ID —— 最常见，如员工工号、手机号等", value: "direct" }
       - { label: "需要，但不能暴露真实 ID —— 转换为会议专用身份，后台维护映射关系", value: "uuid-mapping" }
       - { label: "不需要，允许无账号匿名入会 —— 生成临时 ID，用完即弃", value: "anonymous" }
@@ -27,7 +35,13 @@ business_decisions:
     tier: deferrable
     default: redirect-login
     question: "如果用户登录态失效了（凭证过期，或在别处登录把这台顶下线），页面应如何处理？"
+    tier: deferrable
+    default: redirect-login
+    question: "如果用户登录态失效了（凭证过期，或在别处登录把这台顶下线），页面应如何处理？"
     options:
+      - { label: "跳回登录页，让用户重新登录 —— 最稳妥（推荐默认）", value: "redirect-login" }
+      - { label: "后台静默换新凭证、自动重连 —— 用户无感，但需后端配合", value: "auto-refresh" }
+      - { label: "弹窗提示，由用户决定重连或退出", value: "prompt-user" }
       - { label: "跳回登录页，让用户重新登录 —— 最稳妥（推荐默认）", value: "redirect-login" }
       - { label: "后台静默换新凭证、自动重连 —— 用户无感，但需后端配合", value: "auto-refresh" }
       - { label: "弹窗提示，由用户决定重连或退出", value: "prompt-user" }

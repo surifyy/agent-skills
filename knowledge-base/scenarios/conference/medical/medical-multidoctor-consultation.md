@@ -5,6 +5,19 @@ product: conference
 room_type: standard
 base_scenario: general-conference
 industry: medical
+
+trigger:
+  intent_keywords:
+    - 多方会诊
+    - 医疗会诊
+    - 专家会诊
+    - 多医生讨论
+    - 远程会诊
+    - MDT 会议
+    - 多学科会诊
+    - multi-doctor consultation
+    - medical consultation
+
 business_traits:
   - mdt
   - medical-record

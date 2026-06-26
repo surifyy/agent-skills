@@ -5,6 +5,25 @@ product: conference
 room_type: standard
 base_scenario: general-conference
 industry: medical
+
+trigger:
+  intent_keywords:
+    - 1v1 视频问诊
+    - 远程问诊
+    - 互联网医院
+    - 医生患者视频
+    - 在线问诊
+    - 医患视频
+    - 问诊系统
+    - telemedicine
+    - video consultation
+    - doctor patient video
+
+template:
+  path: skills/trtc-conference/templates/medical-consultation/
+  playbook: medical-quickstart
+  description: 完整的 1v1 视频问诊项目，含医生端 / 患者端 UI、候诊室和问诊流程
+
 business_traits:
   - waiting-room
   - medical-record
