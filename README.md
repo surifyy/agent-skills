@@ -108,7 +108,7 @@ The skill saves your progress in the project. If you close the tool and come bac
 | **Conference** | Video conferencing — multi-party meetings, screen sharing, in-meeting chat | Web ✅ |
 | **Conversational AI** | Voice-first AI customer service agent — voice agent, knowledge base lookup, human handoff, tool calling, session summary | Web ✅ |
 | **Live** | Interactive live streaming — anchor/audience roles, co-hosting, barrage, gifts, beauty filters | Coming soon |
-| **Chat** | Instant messaging — messages, conversations, groups, user profiles | Coming soon |
+| **Chat** | Instant messaging — messages, conversations, groups, user profiles | Web ✅ |
 | **Call** | Audio/video calling — 1-on-1 and group calls | Coming soon |
 | **RTC Engine** | Low-level real-time audio/video engine — room management, publishing, subscribing | Coming soon |
 
