@@ -10,7 +10,62 @@ You can use it to build scenarios like video conferencing, live streaming rooms,
 
 ---
 
-### Installation
+## About Tencent RTC
+
+[Tencent RTC](https://trtc.io) (Real-Time Communication) powers real-time audio, video, and conversational AI experiences for thousands of businesses worldwide. With a global edge network spanning 200+ countries and regions, TRTC delivers sub-300ms ultra-low latency at scale.
+
+---
+
+## Installation
+
+**Claude Code**
+
+```bash
+# Step 1 — add the TRTC plugin marketplace
+/plugin marketplace add Tencent-RTC/agent-skills
+
+# Step 2 — install the plugin
+/plugin install trtc-agent-skills@trtc-marketplace
+
+# Step 3 — activate without restarting
+/reload-plugins
+```
+
+**Cursor**
+
+Clone the repo into Cursor's local plugin directory:
+
+```bash
+git clone https://github.com/Tencent-RTC/agent-skills.git ~/.cursor/plugins/local/trtc-agent-skills
+```
+
+Then press **`Cmd+Shift+P`** (Mac) / **`Ctrl+Shift+P`** (Windows/Linux) → `Reload Window` (or restart Cursor).
+
+**Codex CLI**
+
+```bash
+# Step 1 — add the TRTC plugin marketplace
+codex plugin marketplace add Tencent-RTC/agent-skills
+
+# Step 2 — open the plugin browser inside Codex CLI:
+/plugins
+# Select the "TRTC Agent Skills" tab → select trtc-agent-skills → press Enter to install
+```
+
+**CodeBuddy CLI**
+
+```bash
+# Step 1 — add the TRTC plugin marketplace
+/plugin marketplace add Tencent-RTC/agent-skills
+
+# Step 2 — install the plugin
+/plugin install trtc-agent-skills@trtc-marketplace
+
+# Step 3 — activate without restarting
+/reload-plugins
+```
+
+### Install via npx (any IDE, no plugin marketplace required)
 
 If your IDE doesn't have a plugin marketplace, or you'd rather pin the install to a specific project, use the npx installer. Run it inside your project directory:
 
@@ -90,3 +145,9 @@ The skill's knowledge is structured into two layers:
 - [TRTC Console (International)](https://console.trtc.io)
 - [TRTC Console (China)](https://console.cloud.tencent.com)
 - [Report an issue](https://github.com/Tencent-RTC/agent-skills/issues)
+
+---
+
+## Contact Us
+
+Need technical support or enterprise pricing? Submit your contact information at [trtc.io/contact](https://trtc.io/contact) and our team will get back to you shortly.
